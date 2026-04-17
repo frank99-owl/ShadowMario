@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# macOS
+.DS_Store
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Build artifacts
+shadow-mario-web.zip
+*.apk
+*.tar.gz
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
