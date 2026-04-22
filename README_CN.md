@@ -105,7 +105,7 @@ make check
 2. 可选添加仓库变量：
    - `ITCH_GAME`（默认：`frank-owl/shadowmario`）
    - `ITCH_SOURCE_CHANNEL`（默认：`source`）
-   - `ITCH_WEB_CHANNEL`（默认：`web`）
+   - `ITCH_WEB_CHANNEL`（仅兜底，默认：`web`）
 3. 推送到 `main`（或在 Actions 页面手动触发）。
 
 工作流每次会上传两份产物：
@@ -121,6 +121,8 @@ butler push dist/shadowmario-source.zip frank-owl/shadowmario:source
 ```bash
 butler push build/web.zip frank-owl/shadowmario:web
 ```
+
+针对网页可玩版本，工作流会先自动识别 itch 页面当前嵌入运行的 HTML 通道，并优先推送到该通道；只有自动识别失败时，才回退到 `ITCH_WEB_CHANNEL`。
 
 ## 常见问题
 

@@ -119,7 +119,7 @@ This repository includes `.github/workflows/deploy-itch.yml` for automatic itch.
 2. Optional: set repository variables:
    - `ITCH_GAME` (default: `frank-owl/shadowmario`)
    - `ITCH_SOURCE_CHANNEL` (default: `source`)
-   - `ITCH_WEB_CHANNEL` (default: `web`)
+   - `ITCH_WEB_CHANNEL` (fallback only, default: `web`)
 3. Push to `main` (or run the workflow manually from Actions).
 
 The workflow uploads two packages on each deployment:
@@ -135,6 +135,8 @@ butler push dist/shadowmario-source.zip frank-owl/shadowmario:source
 ```bash
 butler push build/web.zip frank-owl/shadowmario:web
 ```
+
+For browser updates, the workflow first tries to auto-detect the channel currently used by the live embedded HTML build on your itch page, then pushes to that exact channel. If auto-detection fails, it falls back to `ITCH_WEB_CHANNEL`.
 
 ## Troubleshooting
 
