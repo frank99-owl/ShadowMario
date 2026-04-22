@@ -12,7 +12,6 @@ concurrency:
 
 jobs:
   deploy:
-    if: ${{ secrets.BUTLER_API_KEY != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
