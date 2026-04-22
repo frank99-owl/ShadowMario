@@ -1,18 +1,13 @@
 import math
+from dataclasses import dataclass
+
 import pygame
-from .io_utils import read_csv
-from .entities.player import Player
-from .entities.platform import Platform
-from .entities.flying_platform import FlyingPlatform
-from .entities.enemy import Enemy
-from .entities.enemy_boss import EnemyBoss
-from .entities.coin import Coin
-from .entities.invincible_power import InvinciblePower
+
+from .audio import get_audio_manager
 from .entities.double_score_power import DoubleScorePower
 from .entities.fireball import Fireball
-from .entities.end_flag import EndFlag
+from .level_components import LevelEntityLoader, LevelHudRenderer, PlatformContactResolver
 from .particles import ParticleSystem
-from .audio import get_audio_manager
 
 
 class _NoKeys:
@@ -22,19 +17,58 @@ class _NoKeys:
         return False
 
 
+@dataclass(frozen=True)
+class LevelSnapshot:
+    """Read-only frame snapshot for scene-side consumers."""
+
+    level_number: int
+    camera_mode: bool
+    is_win: bool
+    is_loss: bool
+    race_winner: int | None
+    score: int
+    health: float
+    p1_score: int
+    p2_score: int
+    elapsed_time: float
+    total_coins: int
+    collected_coins: int
+    shake_intensity: float
+    combo_count: int
+    checkpoint_count: int
+    current_checkpoint_idx: int
+    has_player2: bool
+
+
+@dataclass(frozen=True)
+class LevelResult:
+    """Immutable level result payload model."""
+
+    level: int
+    score: int
+    health: float
+    elapsed_time: float
+    total_coins: int
+    collected_coins: int
+    p1_score: int
+    p2_score: int
+    race_winner: int | None
+
+
 class Level:
-    """管理单个关卡的所有实体和逻辑。"""
+    """Manage entities and gameplay rules for one level."""
 
     PLATFORM_RIGHT_BOUND = 3000
     UNIFIED_HEALTH_BAR_COLOR = (100, 240, 120)
     UNIFIED_INV_BAR_COLOR = (90, 180, 255)
+    PLAYER_FIRE_COOLDOWN_FRAMES = 8
 
-    def __init__(self, csv_path, config, level_number=1):
+    def __init__(self, csv_path, config, level_number=1, audio_manager=None):
         self.config = config
         self.level_number = level_number
         self.camera_mode = (level_number == 4)
         self.particles = ParticleSystem()
-        self._audio = get_audio_manager()
+        self._audio = audio_manager or get_audio_manager()
         self._no_keys = _NoKeys()
         self.player = None
         self.player2 = None
@@ -46,55 +80,40 @@ class Level:
         self.fireballs = []
         self.boss = None
         self.current_flying_platform = None
+        self._contacts = PlatformContactResolver(config, self._on_player_land)
+        self._hud_renderer = LevelHudRenderer(
+            config,
+            health_color=self.UNIFIED_HEALTH_BAR_COLOR,
+            inv_color=self.UNIFIED_INV_BAR_COLOR,
+        )
 
         self.is_win = False
         self.is_loss = False
         self.race_winner = None
 
-        # Properties referenced by game_scene.py
+        # Runtime status read by scenes/HUD.
         self.elapsed_time = 0.0
         self.total_coins = 0
         self.collected_coins_count = 0
         self.shake_intensity = 0.0
         self.combo_count = 0
         self._combo_timer = 0.0
+        self._player_fire_cooldown = 0
         self.checkpoints = []
         self.current_checkpoint_idx = -1
         self.best_time = None
         self._boss_death_fx_done = False
 
-        data = read_csv(csv_path)
-        player_count = 0
-        for row in data:
-            entity_type = row[0]
-            x = float(row[1])
-            y = float(row[2])
-
-            if entity_type == "PLAYER":
-                if player_count == 0:
-                    self.player = Player(x, y, config, is_player2=False,
-                                         swap_controls=(level_number == 4),
-                                         legacy_movement=(level_number != 4))
-                elif player_count == 1 and level_number == 4:
-                    self.player2 = Player(x, y, config, is_player2=True,
-                                          swap_controls=(level_number == 4))
-                player_count += 1
-            elif entity_type == "PLATFORM":
-                self.platforms.append(Platform(x, y, config))
-            elif entity_type == "FLYING_PLATFORM":
-                self.platforms.append(FlyingPlatform(x, y, config))
-            elif entity_type == "END_FLAG":
-                self.end_flags.append(EndFlag(x, y, config))
-            elif entity_type == "ENEMY":
-                self.enemies.append(Enemy(x, y, config))
-            elif entity_type == "COIN":
-                self.coins.append(Coin(x, y, config, allow_respawn=(level_number == 4)))
-            elif entity_type == "DOUBLE_SCORE":
-                self.power_ups.append(DoubleScorePower(x, y, config))
-            elif entity_type == "INVINCIBLE_POWER":
-                self.power_ups.append(InvinciblePower(x, y, config))
-            elif entity_type == "ENEMY_BOSS":
-                self.boss = EnemyBoss(x, y, config)
+        entities = LevelEntityLoader.load(csv_path, config, level_number)
+        self.player = entities.player
+        self.player2 = entities.player2
+        self.platforms = entities.platforms
+        self.end_flags = entities.end_flags
+        self.enemies = entities.enemies
+        self.coins = entities.coins
+        self.power_ups = entities.power_ups
+        self.fireballs = entities.fireballs
+        self.boss = entities.boss
 
         self._trim_entities_right_of_end_flag()
         self._init_level_specific_state()
@@ -134,6 +153,9 @@ class Level:
                 self.combo_count = 0
                 self._combo_timer = 0.0
 
+        if self._player_fire_cooldown > 0:
+            self._player_fire_cooldown -= 1
+
         if self.shake_intensity > 0:
             self.shake_intensity *= 0.9
             if self.shake_intensity < 0.05:
@@ -158,9 +180,60 @@ class Level:
     def draw_hud(self, screen):
         if self.camera_mode:
             self._draw_race_hud(screen)
-        # 1-3 关 HUD 已在 _draw_original 中绘制
+        # Levels 1-3 HUD is already rendered in _draw_original.
 
-    # ========== 原始 1-3 关逻辑（完全不变）==========
+    def snapshot(self) -> LevelSnapshot:
+        """Return a stable read-only snapshot for scene logic."""
+        p1_score = self.player.score if self.player is not None else 0
+        p2_score = self.player2.score if self.player2 is not None else 0
+        return LevelSnapshot(
+            level_number=self.level_number,
+            camera_mode=self.camera_mode,
+            is_win=self.is_win,
+            is_loss=self.is_loss,
+            race_winner=self.race_winner,
+            score=p1_score,
+            health=self.player.health if self.player is not None else 0.0,
+            p1_score=p1_score,
+            p2_score=p2_score,
+            elapsed_time=self.elapsed_time,
+            total_coins=self.total_coins,
+            collected_coins=self.collected_coins_count,
+            shake_intensity=self.shake_intensity,
+            combo_count=self.combo_count,
+            checkpoint_count=len(self.checkpoints),
+            current_checkpoint_idx=self.current_checkpoint_idx,
+            has_player2=self.player2 is not None,
+        )
+
+    def build_result(self) -> LevelResult:
+        """Build typed result data for scene transitions."""
+        snapshot = self.snapshot()
+        return LevelResult(
+            level=snapshot.level_number,
+            score=snapshot.score,
+            health=snapshot.health,
+            elapsed_time=snapshot.elapsed_time,
+            total_coins=snapshot.total_coins,
+            collected_coins=snapshot.collected_coins,
+            p1_score=snapshot.p1_score,
+            p2_score=snapshot.p2_score,
+            race_winner=snapshot.race_winner,
+        )
+
+    def force_race_winner(self, winner: int) -> None:
+        """Force race winner and close the level as win."""
+        if winner not in (0, 1, 2):
+            return
+        self.race_winner = winner
+        self.is_win = True
+
+    def finalize_race_by_score(self) -> None:
+        """Finalize race winner based on score and mark win."""
+        self._set_race_winner_by_score()
+        self.is_win = True
+
+    # ========== Original levels 1-3 logic ==========
 
     def _update_original(self, keys, s_just_pressed):
         was_player_jumping = self.player.is_jumping
@@ -169,16 +242,20 @@ class Level:
                 and self.player.get_vertical_speed() < 0):
             self._on_player_jump(self.player)
 
-        # 玩家发射火球
-        if (self.player.health > 0 and s_just_pressed and self.boss is not None
+        # Player shoots fireball.
+        shoot_pressed = bool(s_just_pressed or keys[pygame.K_s])
+        if (self.player.health > 0 and shoot_pressed and self.boss is not None
+                and self._player_fire_cooldown == 0
                 and abs(self.player.x - self.boss.x) < self.config.boss_activation_radius):
-            direction = 1 if self.boss.x > self.player.x else -1
+            direction = 1 if self.player.facing_right else -1
+            spawn_offset = 24 if direction > 0 else -24
             self.fireballs.append(Fireball(
-                self.player.x, self.player.y, self.config, direction, True
+                self.player.x + spawn_offset, self.player.y, self.config, direction, True
             ))
             self._audio.play_sfx("shoot")
+            self._player_fire_cooldown = self.PLAYER_FIRE_COOLDOWN_FRAMES
 
-        # Boss 发射火球
+        # Boss shoots fireball.
         if (self.boss is not None and self.player.health > 0
                 and self.boss.should_shoot(self.player.x, self.config.boss_activation_radius)):
             direction = 1 if self.player.x > self.boss.x else -1
@@ -187,7 +264,7 @@ class Level:
             ))
             self._audio.play_sfx("shoot")
 
-        # 玩家站在飞行平台上时同步水平位置（保持 GitHub 原版行为）
+        # Keep player in sync with moving platform velocity.
         if self.current_flying_platform is not None and self.player.health > 0:
             self.player.x += self.current_flying_platform.last_random_move
 
@@ -294,29 +371,9 @@ class Level:
         self._draw_status(screen)
 
     def _draw_status(self, screen):
-        font = self.config.status_font
-        score_text = f"SCORE {self.player.score}"
-        health_text = f"HEALTH {int(round(self.player.health * 100))}"
-
-        score_surf = font.render(score_text, True, (255, 255, 255))
-        health_surf = font.render(health_text, True, (255, 255, 255))
-
-        screen.blit(score_surf, (self.config.score_x, self.config.score_y))
-        screen.blit(health_surf, (self.config.player_health_x, self.config.player_health_y))
-        self._draw_player_bars(
-            screen,
-            self.player,
-            20,
-            84,
-            health_color=self.UNIFIED_HEALTH_BAR_COLOR,
-            inv_color=self.UNIFIED_INV_BAR_COLOR,
-            health_max=max(1.0, self.config.player_health),
-        )
-
-        if self.boss is not None and self.boss.health > 0:
-            boss_health_text = f"HEALTH {int(round(self.boss.health * 100))}"
-            boss_surf = font.render(boss_health_text, True, (255, 0, 0))
-            screen.blit(boss_surf, (self.config.enemy_boss_health_x, self.config.enemy_boss_health_y))
+        if self.player is None:
+            return
+        self._hud_renderer.draw_status(screen, self.player, self.boss)
 
     def _on_player_jump(self, player):
         direction = 1 if player.facing_right else -1
@@ -376,88 +433,15 @@ class Level:
             self.race_winner = 0
 
     def _try_land_on_platform(self, player, platform):
-        player_rect = player.get_bounding_box()
-        player_half_h = player_rect.height / 2.0
-        prev_y = player.y - player.get_vertical_speed()
-        prev_bottom = prev_y + player_half_h
-        curr_bottom = player.y + player_half_h
-        platform_rect = platform.get_bounding_box()
-        horizontal_overlap = (player_rect.left < platform_rect.right
-                              and player_rect.right > platform_rect.left)
-        crossed_top = prev_bottom <= platform_rect.top + 6 and curr_bottom >= platform_rect.top - 2
-        if horizontal_overlap and crossed_top and player.get_vertical_speed() >= 0:
-            was_in_air = player.is_jumping
-            land_y = platform_rect.top - player_half_h
-            player.land_on_platform(land_y)
-            if was_in_air:
-                self._on_player_land(player)
-            return True, platform if isinstance(platform, FlyingPlatform) else None
-
-        return False, None
+        return self._contacts.try_land(player, platform)
 
     def _try_land_on_platform_legacy_l23(self, player, platform):
-        """Legacy platform landing behavior used by old GitHub L2/L3."""
-        player_rect = player.get_bounding_box()
-        platform_rect = platform.get_bounding_box()
-        was_in_air = player.is_jumping
-
-        if isinstance(platform, FlyingPlatform):
-            dx = abs(player.x - platform.x)
-            dy = platform.y - player.y
-            if (dx < self.config.flying_platform_half_length
-                    and dy <= self.config.flying_platform_half_height + 0.01
-                    and dy >= (self.config.flying_platform_half_height - 1)
-                    and player.get_vertical_speed() >= 0):
-                player.land_on_platform(platform.y - self.config.flying_platform_half_height)
-                if was_in_air:
-                    self._on_player_land(player)
-                return True, platform
-            return False, None
-
-        horizontal_overlap = (player_rect.left < platform_rect.right
-                              and player_rect.right > platform_rect.left)
-        vertical_overlap = (player_rect.bottom >= platform_rect.top
-                            and player_rect.top < platform_rect.bottom)
-        if horizontal_overlap and vertical_overlap and player.get_vertical_speed() >= 0:
-            if player.y < platform.y:
-                land_y = platform_rect.top - (player_rect.bottom - player_rect.top) / 2.0
-                player.land_on_platform(land_y)
-                if was_in_air:
-                    self._on_player_land(player)
-                return True, None
-
-        return False, None
+        return self._contacts.try_land_legacy_l23(player, platform)
 
     def _update_platform_contacts(self, players, keys, scroll_static_platforms):
-        """Shared platform update/collision pipeline used by L4."""
-        for platform in self.platforms:
-            if isinstance(platform, FlyingPlatform):
-                platform.update_flying()
-            elif scroll_static_platforms:
-                platform.update(keys)
+        return self._contacts.update_platform_contacts(players, self.platforms, keys, scroll_static_platforms)
 
-        touching_any_platform = {id(p): False for p in players}
-        flying_plats = {id(p): None for p in players}
-
-        for platform in self.platforms:
-            for p in players:
-                if p.health <= 0 or touching_any_platform[id(p)]:
-                    continue
-                landed, flying_platform = self._try_land_on_platform(p, platform)
-                if landed:
-                    touching_any_platform[id(p)] = True
-                    flying_plats[id(p)] = flying_platform
-
-        for p in players:
-            fp = flying_plats[id(p)]
-            if fp is not None and p.health > 0:
-                p.x += fp.last_random_move
-            if not touching_any_platform[id(p)] and p.health > 0:
-                p.is_jumping = True
-
-        return touching_any_platform, flying_plats
-
-    # ========== 第四关竞速模式逻辑 ==========
+    # ========== Level 4 race mode logic ==========
 
     def _update_race(self, keys, s_just_pressed):
         players = [p for p in [self.player, self.player2] if p is not None]
@@ -518,8 +502,7 @@ class Level:
             for p in players:
                 if (p.health > 0
                         and self.check_collision(p, self.config.player_radius, f, self.config.end_flag_radius)):
-                    self._set_race_winner_by_score()
-                    self.is_win = True
+                    self.finalize_race_by_score()
                     return
 
         # Knockout exit detection (health depleted -> fall out of frame -> other player wins)

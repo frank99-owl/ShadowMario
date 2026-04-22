@@ -2,7 +2,7 @@ import csv
 
 
 def read_csv(filepath):
-    """读取 CSV 文件，返回列表，每项为 [type, x, y]。"""
+    """Read CSV rows as [entity_type, x, y] entries."""
     data = []
     with open(filepath, "r", encoding="utf-8") as f:
         reader = csv.reader(f)

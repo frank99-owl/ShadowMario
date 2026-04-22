@@ -4,9 +4,7 @@ from typing import List
 
 import pygame
 
-from shadow_mario.config import GameConfig
-from shadow_mario.audio import get_audio_manager
-from shadow_mario.save import get_save_manager
+from shadow_mario.scene_payloads import LevelStartPayload, SettingsRoutePayload
 from shadow_mario.ui_components import Slider
 from .scene import Scene
 
@@ -18,11 +16,11 @@ class SettingsScene(Scene):
     BUTTON_HEIGHT = 45
     BUTTON_SPACING = 15
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.config = GameConfig()
-        self.audio = get_audio_manager()
-        self.save = get_save_manager()
+    def __init__(self, context) -> None:
+        super().__init__(context)
+        self.config = self.context.config
+        self.audio = self.context.audio
+        self.save = self.context.save
         self._selected_index = 0  # 0=master, 1=bgm, 2=sfx, 3=mute, 4=reset, 5=back
         self._slider_selected = 0  # Which slider is selected for keyboard control
 
@@ -155,10 +153,11 @@ class SettingsScene(Scene):
 
     def _go_back(self) -> None:
         """Return to previous scene."""
-        return_to = self._transition_data.get("return_to", "menu")
-        if return_to == "pause":
-            pause_data = self._transition_data.get("pause_data", {})
-            self._switch_to("pause", pause_data)
+        route = SettingsRoutePayload.from_mapping(self._transition_data)
+        if route.return_to == "pause":
+            self._switch_to("pause", route.pause_data or {})
+        elif route.return_to == "game":
+            self._switch_to("game", LevelStartPayload(level=route.level))
         else:
             self._switch_to("menu")
 

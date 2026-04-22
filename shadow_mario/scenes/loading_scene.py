@@ -6,8 +6,7 @@ from typing import List
 
 import pygame
 
-from shadow_mario.config import GameConfig
-from shadow_mario.audio import get_audio_manager
+from shadow_mario.scene_payloads import LevelStartPayload
 from .scene import Scene
 
 
@@ -29,9 +28,9 @@ class LoadingScene(Scene):
         "Flying platforms move horizontally - time your jumps!",
     ]
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.config = GameConfig()
+    def __init__(self, context) -> None:
+        super().__init__(context)
+        self.config = self.context.config
         self._bg_image = pygame.image.load(self.config.background_image).convert()
         self._time = 0.0
         self._progress = 0.0
@@ -44,14 +43,14 @@ class LoadingScene(Scene):
 
     def on_enter(self, data: dict | None = None) -> None:
         super().on_enter(data)
-        d = data or {}
-        self._level = d.get("level", 1)
+        payload = LevelStartPayload.from_mapping(data)
+        self._level = payload.level
         self._time = 0.0
         self._progress = 0.0
         self._tip = random.choice(self.TIPS)
         self._tip_time = 0.0
         # Fade out menu BGM
-        get_audio_manager().stop_bgm(fade_ms=300)
+        self.context.audio.stop_bgm(fade_ms=300)
 
     def handle_events(self, events: List[pygame.event.Event]) -> None:
         """Loading scene ignores all input events."""
@@ -70,7 +69,7 @@ class LoadingScene(Scene):
 
         # Auto-switch to game when loading complete
         if self._time >= self.LOADING_DURATION:
-            self._switch_to("game", {"level": self._level})
+            self._switch_to("game", LevelStartPayload(level=self._level))
 
     def draw(self, screen: pygame.Surface) -> None:
         # Background
@@ -139,7 +138,6 @@ class LoadingScene(Scene):
         # Typewriter: show characters progressively
         chars_to_show = min(len(self._tip), int(self._tip_time * 30))
         visible_tip = self._tip[:chars_to_show]
-        tip_surf = self.config.instruction_font.render(visible_tip, True, (180, 180, 180))
         # Word wrap: wrap tip text to fit screen
         max_width = self.config.window_width - 100
         words = visible_tip.split(" ")

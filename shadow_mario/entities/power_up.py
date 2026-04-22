@@ -1,4 +1,3 @@
-from shadow_mario.config import GameConfig
 from .moveable_entity import MoveableEntity
 
 

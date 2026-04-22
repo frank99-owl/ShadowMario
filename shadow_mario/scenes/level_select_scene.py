@@ -1,12 +1,10 @@
 """Level select scene."""
 
-import math
 from typing import List
 
 import pygame
 
-from shadow_mario.config import GameConfig
-from shadow_mario.save import get_save_manager
+from shadow_mario.scene_payloads import LevelStartPayload
 from .scene import Scene
 
 
@@ -17,10 +15,10 @@ class LevelSelectScene(Scene):
     CARD_HEIGHT = 170
     CARD_SPACING = 15
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.config = GameConfig()
-        self.save = get_save_manager()
+    def __init__(self, context) -> None:
+        super().__init__(context)
+        self.config = self.context.config
+        self.save = self.context.save
         self._bg_image = pygame.image.load(self.config.background_image).convert()
         self._selected_index = 0
         self._unlocked: list[bool] = []
@@ -88,13 +86,13 @@ class LevelSelectScene(Scene):
                     self._switch_to("menu")
 
     def _start_level(self, index: int) -> None:
-        """Start specified level。"""
+        """Start selected level."""
         if not self._unlocked[index]:
             return
-        self._switch_to("loading", {"level": index + 1})
+        self._switch_to("loading", LevelStartPayload(level=index + 1))
 
     def _get_card_rect(self, index: int) -> pygame.Rect:
-        """Get level card position。"""
+        """Get level card position."""
         # We have 4 levels now, so total width calculation should reflect that
         total_width = 4 * self.CARD_WIDTH + 3 * self.CARD_SPACING
         start_x = (self.config.window_width - total_width) // 2
@@ -196,4 +194,3 @@ class LevelSelectScene(Scene):
         text_surf = self.config.instruction_font.render("BACK", True, (255, 255, 255))
         text_rect = text_surf.get_rect(center=rect.center)
         screen.blit(text_surf, text_rect)
-

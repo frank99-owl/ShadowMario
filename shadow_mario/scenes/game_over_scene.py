@@ -1,14 +1,11 @@
 """Game over scene (victory/defeat settlement)."""
 
-import math
 from typing import List
 
 import pygame
 
-from shadow_mario.config import GameConfig
-from shadow_mario.save import get_save_manager
-from shadow_mario.audio import get_audio_manager
 from shadow_mario.achievements import get_achievement_manager
+from shadow_mario.scene_payloads import GameOverPayload, LevelStartPayload
 from .scene import Scene
 
 
@@ -19,9 +16,9 @@ class GameOverScene(Scene):
     BUTTON_HEIGHT = 45
     BUTTON_SPACING = 15
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.config = GameConfig()
+    def __init__(self, context) -> None:
+        super().__init__(context)
+        self.config = self.context.config
         self._won = False
         self._score = 0
         self._health = 0.0
@@ -84,24 +81,24 @@ class GameOverScene(Scene):
 
     def on_enter(self, data: dict | None = None) -> None:
         super().on_enter(data)
-        d = data or {}
-        self._won = d.get("won", False)
-        self._score = d.get("score", 0)
-        self._health = d.get("health", 0.0)
-        self._level = d.get("level", 1)
-        self._elapsed_time = d.get("elapsed_time", 0.0)
-        self._total_coins = d.get("total_coins", 0)
-        self._collected_coins = d.get("collected_coins", 0)
-        self._p1_score = d.get("p1_score", 0)
-        self._p2_score = d.get("p2_score", 0)
-        self._race_winner = d.get("race_winner")
+        payload = GameOverPayload.from_mapping(data)
+        self._won = payload.won
+        self._score = payload.score
+        self._health = payload.health
+        self._level = payload.level
+        self._elapsed_time = payload.elapsed_time
+        self._total_coins = payload.total_coins
+        self._collected_coins = payload.collected_coins
+        self._p1_score = payload.p1_score
+        self._p2_score = payload.p2_score
+        self._race_winner = payload.race_winner
         self._time = 0.0
         self._selected_index = 0
         self._rank = self._calculate_rank()
 
         # Save: save high score + unlock next level + achievements + sound effects
-        save = get_save_manager()
-        audio = get_audio_manager()
+        save = self.context.save
+        audio = self.context.audio
         self._new_achievements = []
         if self._won:
             self._high_score_beaten = save.set_high_score(self._level, self._score)
@@ -186,9 +183,9 @@ class GameOverScene(Scene):
             
         action = self._buttons[index]["action"]
         if action == "next_level":
-            self._switch_to("game", {"level": self._level + 1})
+            self._switch_to("game", LevelStartPayload(level=self._level + 1))
         elif action == "retry":
-            self._switch_to("game", {"level": self._level})
+            self._switch_to("game", LevelStartPayload(level=self._level))
         elif action == "menu":
             self._switch_to("menu")
 

@@ -6,10 +6,7 @@ from typing import List
 
 import pygame
 
-from shadow_mario.config import GameConfig
-from shadow_mario.runtime_config import get_runtime_config
-from shadow_mario.audio import get_audio_manager
-from shadow_mario.save import get_save_manager
+from shadow_mario.scene_payloads import LevelStartPayload
 from .scene import Scene
 
 
@@ -20,11 +17,11 @@ class MenuScene(Scene):
     BUTTON_HEIGHT = 50
     BUTTON_SPACING = 20
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.config = GameConfig()
-        self.rc = get_runtime_config()
-        self.save = get_save_manager()
+    def __init__(self, context) -> None:
+        super().__init__(context)
+        self.config = self.context.config
+        self.rc = self.context.runtime_config
+        self.save = self.context.save
         self._bg_image = pygame.image.load(self.config.background_image).convert()
 
         # Title animation
@@ -83,7 +80,7 @@ class MenuScene(Scene):
         self._title_time = 0.0
         self._selected_index = 0
         self._refresh_save_data()
-        get_audio_manager().play_bgm("bgm_menu")
+        self.context.audio.play_bgm("bgm_menu")
 
     def handle_events(self, events: List[pygame.event.Event]) -> None:
         for event in events:
@@ -104,13 +101,13 @@ class MenuScene(Scene):
 
                 # Number keys for quick level select (from save)
                 if event.key == pygame.K_1:
-                    self._switch_to("loading", {"level": 1})
+                    self._switch_to("loading", LevelStartPayload(level=1))
                 elif event.key == pygame.K_2 and len(self._unlocked_levels) > 1 and self._unlocked_levels[1]:
-                    self._switch_to("loading", {"level": 2})
+                    self._switch_to("loading", LevelStartPayload(level=2))
                 elif event.key == pygame.K_3 and len(self._unlocked_levels) > 2 and self._unlocked_levels[2]:
-                    self._switch_to("loading", {"level": 3})
+                    self._switch_to("loading", LevelStartPayload(level=3))
                 elif event.key == pygame.K_4 and len(self._unlocked_levels) > 3 and self._unlocked_levels[3]:
-                    self._switch_to("loading", {"level": 4})
+                    self._switch_to("loading", LevelStartPayload(level=4))
 
             # Mouse support
             if event.type == pygame.MOUSEMOTION:
@@ -130,7 +127,7 @@ class MenuScene(Scene):
         action = self._buttons[index]["action"]
         if action == "start_game":
             # Start from first unlocked level, or level 1
-            self._switch_to("loading", {"level": 1})
+            self._switch_to("loading", LevelStartPayload(level=1))
         elif action == "level_select":
             self._switch_to("level_select")
         elif action == "settings":

@@ -2,7 +2,7 @@
 
 import math
 import random
-from typing import List, Callable, Optional
+from typing import List, Callable
 
 import pygame
 

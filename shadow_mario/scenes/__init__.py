@@ -8,6 +8,7 @@ from .pause_scene import PauseScene
 from .game_over_scene import GameOverScene
 from .settings_scene import SettingsScene
 from .loading_scene import LoadingScene
+from .level_select_scene import LevelSelectScene
 
 __all__ = [
     "Scene",
@@ -18,4 +19,5 @@ __all__ = [
     "GameOverScene",
     "SettingsScene",
     "LoadingScene",
+    "LevelSelectScene",
 ]

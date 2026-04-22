@@ -1,9 +1,8 @@
-import pygame
 from .platform import Platform
 
 
 class FlyingPlatform(Platform):
-    """飞行平台，固定区间内水平往返移动。"""
+    """Flying platform that moves back and forth within a fixed range."""
 
     def __init__(self, x, y, config, scroll_with_world=True, randomize_direction=True, initial_direction=None):
         super().__init__(x, y, config, config.flying_platform_image, config.flying_platform_speed)
@@ -42,9 +41,9 @@ class FlyingPlatform(Platform):
         self._advance_motion()
 
     def update(self, keys):
-        # 先执行背景滚动（可禁用）
+        # Apply world scroll first (optional).
         if self.scroll_with_world:
             super().update(keys)
 
-        # 固定速度往返移动
+        # Move at a constant speed in a fixed range.
         self._advance_motion()

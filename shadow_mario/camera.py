@@ -1,7 +1,6 @@
 """Camera system, responsible for smooth player following and screen shake effects."""
 
 import random
-from typing import Optional
 
 import pygame
 

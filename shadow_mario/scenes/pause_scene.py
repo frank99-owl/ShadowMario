@@ -4,7 +4,7 @@ from typing import List
 
 import pygame
 
-from shadow_mario.config import GameConfig
+from shadow_mario.scene_payloads import LevelStartPayload, SettingsRoutePayload
 from .scene import Scene
 
 
@@ -15,9 +15,9 @@ class PauseScene(Scene):
     BUTTON_HEIGHT = 45
     BUTTON_SPACING = 15
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.config = GameConfig()
+    def __init__(self, context) -> None:
+        super().__init__(context)
+        self.config = self.context.config
         self._selected_index = 0
         self._buttons: list[dict] = []
         self._build_buttons()
@@ -91,13 +91,17 @@ class PauseScene(Scene):
             
         action = self._buttons[index]["action"]
         data = self._transition_data
+        level = LevelStartPayload.from_mapping(data).level
 
         if action == "resume":
             self._switch_to("resume")
         elif action == "restart":
-            self._switch_to("game", {"level": data.get("level", 1)})
+            self._switch_to("game", LevelStartPayload(level=level))
         elif action == "settings":
-            self._switch_to("settings", {"return_to": "pause", "pause_data": data})
+            self._switch_to(
+                "settings",
+                SettingsRoutePayload(return_to="pause", level=level, pause_data=dict(data)),
+            )
         elif action == "quit_to_menu":
             self._switch_to("menu")
 

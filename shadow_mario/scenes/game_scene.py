@@ -1,15 +1,12 @@
 """Game scene, handles actual level gameplay."""
 
-import math
 import random
 from typing import List
 
 import pygame
 
-from shadow_mario.config import GameConfig
 from shadow_mario.level import Level
-from shadow_mario.audio import get_audio_manager
-from shadow_mario.save import get_save_manager
+from shadow_mario.scene_payloads import GameOverPayload, LevelStartPayload, SettingsRoutePayload
 from shadow_mario.tutorial import TutorialHint, TutorialManager
 from shadow_mario.transition import FadeTransition
 from shadow_mario.entities.player import Player
@@ -23,9 +20,9 @@ class GameScene(Scene):
     BUTTON_HEIGHT = 45
     BUTTON_SPACING = 15
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.config = GameConfig()
+    def __init__(self, context) -> None:
+        super().__init__(context)
+        self.config = self.context.config
         self._bg_image = pygame.image.load(self.config.background_image).convert()
         self._level: Level | None = None
         self._level_number = 1
@@ -107,7 +104,6 @@ class GameScene(Scene):
     def _build_tutorial(self) -> None:
         """Build tutorial hints for first level."""
         cx = self.config.window_width // 2
-        cy = self.config.window_height // 2 + 100
         font = self.config.instruction_font
 
         if self._level_number == 4:
@@ -123,12 +119,16 @@ class GameScene(Scene):
             ))
             self._tutorial.start()
 
+    def _load_level(self, level_number: int) -> None:
+        level_file = self._get_level_file(level_number)
+        self._level = Level(level_file, self.config, level_number, audio_manager=self.context.audio)
+        self._level.best_time = self.context.save.get_best_time(level_number)
+
     def on_enter(self, data: dict | None = None) -> None:
         super().on_enter(data)
-        self._level_number = data.get("level", 1) if data else 1
-        level_file = self._get_level_file(self._level_number)
-        self._level = Level(level_file, self.config, self._level_number)
-        self._level.best_time = get_save_manager().get_best_time(self._level_number)
+        payload = LevelStartPayload.from_mapping(data)
+        self._level_number = payload.level
+        self._load_level(self._level_number)
         self._s_pressed_last = False
         self._paused = False
         self._pause_selected = 0
@@ -138,7 +138,7 @@ class GameScene(Scene):
         self._respawn_flash = 0.0
         self._screenshot_notify_timer = 0.0
         self._race_camera_state = None
-        get_audio_manager().play_bgm("bgm_level")
+        self.context.audio.play_bgm("bgm_level")
 
         # Setup tutorial for level 1
         self._tutorial = TutorialManager()
@@ -206,14 +206,16 @@ class GameScene(Scene):
             self._paused = False
         elif action == "restart":
             self._paused = False
-            level_file = self._get_level_file(self._level_number)
-            self._level = Level(level_file, self.config, self._level_number)
+            self._load_level(self._level_number)
             self._s_pressed_last = False
             self._tutorial = TutorialManager()
             self._build_tutorial()
             self._race_camera_state = None
         elif action == "settings":
-            self._switch_to("settings", {"return_to": "game", "level": self._level_number})
+            self._switch_to(
+                "settings",
+                SettingsRoutePayload(return_to="game", level=self._level_number),
+            )
         elif action == "quit_to_menu":
             self._start_transition_to("menu")
 
@@ -250,17 +252,18 @@ class GameScene(Scene):
         self._s_pressed_last = keys[pygame.K_s]
 
         self._level.update(keys, s_just_pressed)
+        snapshot = self._level.snapshot()
 
         # Update zoom and check falling behind (race mode only)
-        if self._level_number == 4 and self._level.player2 and not self._level.is_win and not self._level.is_loss:
+        if self._level_number == 4 and snapshot.has_player2 and not snapshot.is_win and not snapshot.is_loss:
             self._update_zoom()
             loser = self._check_falling_behind()
             if loser:
                 if loser is self._level.player:
-                    self._level.race_winner = 2
+                    self._level.force_race_winner(2)
                 elif loser is self._level.player2:
-                    self._level.race_winner = 1
-                self._level.is_win = True
+                    self._level.force_race_winner(1)
+                snapshot = self._level.snapshot()
 
         # Update tutorial
         self._tutorial.update(dt)
@@ -272,14 +275,14 @@ class GameScene(Scene):
                 self._damage_flash = 0
 
         # Check for damage to trigger flash
-        if self._level.player and self._level.shake_intensity > 4:
+        if self._level.player and snapshot.shake_intensity > 4:
             self._damage_flash = 0.5
 
         # Check for respawn to trigger flash effect
         if (self._level.player and self._level.player.respawn_effect_timer > 0
                 and self._respawn_flash <= 0):
             self._respawn_flash = 0.6
-            get_audio_manager().play_sfx("powerup")
+            self.context.audio.play_sfx("powerup")
 
         # Update respawn flash
         if self._respawn_flash > 0:
@@ -295,37 +298,36 @@ class GameScene(Scene):
             self._screenshot_notify_timer -= dt
 
         # Check win
-        if self._level.is_win:
-            win_data = {
-                "won": True,
-                "level": self._level_number,
-                "score": self._level.player.score,
-                "health": self._level.player.health,
-                "elapsed_time": self._level.elapsed_time,
-                "total_coins": self._level.total_coins,
-                "collected_coins": self._level.collected_coins_count,
-            }
-            # Race mode: include both player scores
-            if self._level_number == 4 and self._level.player2:
-                win_data["p1_score"] = self._level.player.score
-                win_data["p2_score"] = self._level.player2.score
-                win_data["race_winner"] = self._level.race_winner
-            self._start_transition_to("game_over", win_data)
+        if snapshot.is_win:
+            result = self._level.build_result()
+            self._start_transition_to("game_over", GameOverPayload(
+                won=True,
+                level=result.level,
+                score=result.score,
+                health=result.health,
+                elapsed_time=result.elapsed_time,
+                total_coins=result.total_coins,
+                collected_coins=result.collected_coins,
+                p1_score=result.p1_score,
+                p2_score=result.p2_score,
+                race_winner=result.race_winner,
+            ))
 
         # Check loss (no lives left)
-        if self._level.is_loss:
-            loss_data = {
-                "won": False,
-                "level": self._level_number,
-                "score": self._level.player.score,
-                "elapsed_time": self._level.elapsed_time,
-                "total_coins": self._level.total_coins,
-                "collected_coins": self._level.collected_coins_count,
-            }
-            if self._level_number == 4 and self._level.player2:
-                loss_data["p1_score"] = self._level.player.score
-                loss_data["p2_score"] = self._level.player2.score
-            self._start_transition_to("game_over", loss_data)
+        if snapshot.is_loss:
+            result = self._level.build_result()
+            self._start_transition_to("game_over", GameOverPayload(
+                won=False,
+                level=result.level,
+                score=result.score,
+                health=result.health,
+                elapsed_time=result.elapsed_time,
+                total_coins=result.total_coins,
+                collected_coins=result.collected_coins,
+                p1_score=result.p1_score,
+                p2_score=result.p2_score,
+                race_winner=result.race_winner,
+            ))
 
     def _update_speed_lines(self, dt: float) -> None:
         """Update speed line particles for fast movement feel."""
@@ -449,9 +451,11 @@ class GameScene(Scene):
         """Draw game in normal mode (levels 1-3)."""
         # Calculate shake offset
         shake_x, shake_y = 0, 0
-        if self._level is not None and self._level.shake_intensity > 0:
-            shake_x = int(random.uniform(-self._level.shake_intensity, self._level.shake_intensity))
-            shake_y = int(random.uniform(-self._level.shake_intensity, self._level.shake_intensity))
+        if self._level is not None:
+            snapshot = self._level.snapshot()
+            if snapshot.shake_intensity > 0:
+                shake_x = int(random.uniform(-snapshot.shake_intensity, snapshot.shake_intensity))
+                shake_y = int(random.uniform(-snapshot.shake_intensity, snapshot.shake_intensity))
 
         # Draw everything to a temp surface, then apply shake
         if shake_x != 0 or shake_y != 0:
@@ -505,9 +509,10 @@ class GameScene(Scene):
 
         # Apply screen shake
         shake_x, shake_y = 0, 0
-        if self._level.shake_intensity > 0:
-            shake_x = int(random.uniform(-self._level.shake_intensity, self._level.shake_intensity))
-            shake_y = int(random.uniform(-self._level.shake_intensity, self._level.shake_intensity))
+        snapshot = self._level.snapshot()
+        if snapshot.shake_intensity > 0:
+            shake_x = int(random.uniform(-snapshot.shake_intensity, snapshot.shake_intensity))
+            shake_y = int(random.uniform(-snapshot.shake_intensity, snapshot.shake_intensity))
 
         # Draw all entities with camera offset
         camera_offset = (-cam_x + shake_x, -cam_y + shake_y)
@@ -600,7 +605,6 @@ class GameScene(Scene):
         for line in self._speed_lines:
             color = (255, 255, 255, int(line["alpha"]))
             start_pos = (int(line["x"]), int(line["y"]))
-            end_pos = (int(line["x"] + line["length"]), int(line["y"]))
             # Draw with alpha using a small surface
             surf = pygame.Surface((line["length"], 2), pygame.SRCALPHA)
             pygame.draw.line(surf, color, (0, 1), (line["length"], 1), 1)
@@ -625,6 +629,7 @@ class GameScene(Scene):
         """Draw statistics panel on pause screen."""
         if self._level is None or self._level.player is None:
             return
+        snapshot = self._level.snapshot()
 
         # Right-aligned panel
         panel_w = 320
@@ -644,18 +649,18 @@ class GameScene(Scene):
 
         # Stats lines
         stats = [
-            (f"SCORE {self._level.player.score}", (255, 255, 255)),
+            (f"SCORE {snapshot.score}", (255, 255, 255)),
             (f"LIVES {self._level.player.lives} OF {Player.MAX_LIVES}", (255, 50, 80)),
-            (f"HEALTH {int(self._level.player.health * 100)}", (100, 255, 100)),
-            (f"COINS {self._level.collected_coins_count} OF {self._level.total_coins}", (255, 215, 0)),
-            (f"COMBO X{self._level.combo_count}", (255, 215, 0) if self._level.combo_count > 1 else (200, 200, 200)),
+            (f"HEALTH {int(snapshot.health * 100)}", (100, 255, 100)),
+            (f"COINS {snapshot.collected_coins} OF {snapshot.total_coins}", (255, 215, 0)),
+            (f"COMBO X{snapshot.combo_count}", (255, 215, 0) if snapshot.combo_count > 1 else (200, 200, 200)),
         ]
-        minutes = int(self._level.elapsed_time) // 60
-        seconds = int(self._level.elapsed_time) % 60
+        minutes = int(snapshot.elapsed_time) // 60
+        seconds = int(snapshot.elapsed_time) % 60
         stats.append((f"TIME {minutes:02d} {seconds:02d}", (200, 200, 200)))
 
-        if self._level.checkpoints:
-            cp_text = f"CHECKPOINTS {self._level.current_checkpoint_idx + 1} OF {len(self._level.checkpoints)}"
+        if snapshot.checkpoint_count > 0:
+            cp_text = f"CHECKPOINTS {snapshot.current_checkpoint_idx + 1} OF {snapshot.checkpoint_count}"
             stats.append((cp_text, (100, 255, 150)))
 
         line_y = panel_y + 35
