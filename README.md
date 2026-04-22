@@ -15,8 +15,8 @@ The project includes four playable levels, a scene-based UI flow, audio/save sys
 ## Gameplay Rules
 
 - Level 1: tutorial-style single-player stage
-- Level 2: dual-layer moving-platform stage
-- Level 3: single-layer platform stage with boss combat
+- Level 2: single-layer moving-platform stage
+- Level 3: dual-layer platform stage with boss combat
 - Level 4: two-player race with score-based winner resolution
 - End-flag rule: no entities are spawned to the right of the end flag in stage data
 
@@ -110,33 +110,6 @@ make lint
 make test
 make typecheck
 ```
-
-## Auto Deploy to itch.io
-
-This repository includes `.github/workflows/deploy-itch.yml` for automatic itch.io uploads.
-
-1. Add GitHub repository secret `BUTLER_API_KEY` (from your itch.io account API keys page).
-2. Optional: set repository variables:
-   - `ITCH_GAME` (default: `frank-owl/shadowmario`)
-   - `ITCH_SOURCE_CHANNEL` (default: `source`)
-   - `ITCH_WEB_CHANNEL` (fallback only, default: `web`)
-3. Push to `main` (or run the workflow manually from Actions).
-
-The workflow uploads two packages on each deployment:
-
-- Source package (`git archive`):
-
-```bash
-butler push dist/shadowmario-source.zip frank-owl/shadowmario:source
-```
-
-- Web package (`pygbag`, for browser play updates):
-
-```bash
-butler push build/web.zip frank-owl/shadowmario:web
-```
-
-For browser updates, the workflow first tries to auto-detect the channel currently used by the live embedded HTML build on your itch page, then pushes to that exact channel. If auto-detection fails, it falls back to `ITCH_WEB_CHANNEL`.
 
 ## Troubleshooting
 

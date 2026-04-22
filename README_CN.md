@@ -14,8 +14,8 @@ Shadow Mario 是一个基于 Python + Pygame 的 2D 平台游戏项目。
 ## 玩法规则
 
 - 第 1 关：教学风格的单人关卡
-- 第 2 关：双层移动平台关卡
-- 第 3 关：单层平台 + Boss 战关卡
+- 第 2 关：单层移动平台关卡
+- 第 3 关：双层平台 + Boss 战关卡
 - 第 4 关：双人竞速，按得分判定胜负
 - 终点规则：在关卡数据中，终点旗帜右侧不再生成实体
 
@@ -96,33 +96,6 @@ pip install -r requirements-dev.txt
 ```bash
 make check
 ```
-
-## itch.io 自动发布
-
-仓库已包含 `.github/workflows/deploy-itch.yml`，可在每次推送 `main` 后自动上传到 itch.io。
-
-1. 在 GitHub 仓库里添加 Secret：`BUTLER_API_KEY`（来自 itch.io API keys）。
-2. 可选添加仓库变量：
-   - `ITCH_GAME`（默认：`frank-owl/shadowmario`）
-   - `ITCH_SOURCE_CHANNEL`（默认：`source`）
-   - `ITCH_WEB_CHANNEL`（仅兜底，默认：`web`）
-3. 推送到 `main`（或在 Actions 页面手动触发）。
-
-工作流每次会上传两份产物：
-
-- 源码包（`git archive`）：
-
-```bash
-butler push dist/shadowmario-source.zip frank-owl/shadowmario:source
-```
-
-- 网页包（`pygbag`，用于网页可玩版本同步）：
-
-```bash
-butler push build/web.zip frank-owl/shadowmario:web
-```
-
-针对网页可玩版本，工作流会先自动识别 itch 页面当前嵌入运行的 HTML 通道，并优先推送到该通道；只有自动识别失败时，才回退到 `ITCH_WEB_CHANNEL`。
 
 ## 常见问题
 
