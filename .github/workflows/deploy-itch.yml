@@ -1,0 +1,38 @@
+name: Deploy to itch.io
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-itch-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: ${{ secrets.BUTLER_API_KEY != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      ITCH_GAME: ${{ vars.ITCH_GAME || 'frank-owl/shadowmario' }}
+      ITCH_CHANNEL: ${{ vars.ITCH_CHANNEL || 'source' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup butler
+        uses: remarkablegames/setup-butler@v2
+
+      - name: Build release archive
+        run: |
+          mkdir -p dist
+          git archive --format=zip --output dist/shadowmario-source.zip HEAD
+
+      - name: Push build to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          butler push dist/shadowmario-source.zip "${ITCH_GAME}:${ITCH_CHANNEL}" --userversion "${GITHUB_SHA::7}"

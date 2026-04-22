@@ -111,6 +111,22 @@ make test
 make typecheck
 ```
 
+## Auto Deploy to itch.io
+
+This repository includes `.github/workflows/deploy-itch.yml` for automatic itch.io uploads.
+
+1. Add GitHub repository secret `BUTLER_API_KEY` (from your itch.io account API keys page).
+2. Optional: set repository variables:
+   - `ITCH_GAME` (default: `frank-owl/shadowmario`)
+   - `ITCH_CHANNEL` (default: `source`)
+3. Push to `main` (or run the workflow manually from Actions).
+
+The workflow creates `dist/shadowmario-source.zip` from `HEAD` and uploads with:
+
+```bash
+butler push dist/shadowmario-source.zip frank-owl/shadowmario:source
+```
+
 ## Troubleshooting
 
 - Pygame display init errors:
