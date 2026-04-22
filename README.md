@@ -118,13 +118,22 @@ This repository includes `.github/workflows/deploy-itch.yml` for automatic itch.
 1. Add GitHub repository secret `BUTLER_API_KEY` (from your itch.io account API keys page).
 2. Optional: set repository variables:
    - `ITCH_GAME` (default: `frank-owl/shadowmario`)
-   - `ITCH_CHANNEL` (default: `source`)
+   - `ITCH_SOURCE_CHANNEL` (default: `source`)
+   - `ITCH_WEB_CHANNEL` (default: `web`)
 3. Push to `main` (or run the workflow manually from Actions).
 
-The workflow creates `dist/shadowmario-source.zip` from `HEAD` and uploads with:
+The workflow uploads two packages on each deployment:
+
+- Source package (`git archive`):
 
 ```bash
 butler push dist/shadowmario-source.zip frank-owl/shadowmario:source
+```
+
+- Web package (`pygbag`, for browser play updates):
+
+```bash
+butler push build/web.zip frank-owl/shadowmario:web
 ```
 
 ## Troubleshooting

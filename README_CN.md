@@ -104,13 +104,22 @@ make check
 1. 在 GitHub 仓库里添加 Secret：`BUTLER_API_KEY`（来自 itch.io API keys）。
 2. 可选添加仓库变量：
    - `ITCH_GAME`（默认：`frank-owl/shadowmario`）
-   - `ITCH_CHANNEL`（默认：`source`）
+   - `ITCH_SOURCE_CHANNEL`（默认：`source`）
+   - `ITCH_WEB_CHANNEL`（默认：`web`）
 3. 推送到 `main`（或在 Actions 页面手动触发）。
 
-工作流会基于当前 `HEAD` 生成 `dist/shadowmario-source.zip`，并执行：
+工作流每次会上传两份产物：
+
+- 源码包（`git archive`）：
 
 ```bash
 butler push dist/shadowmario-source.zip frank-owl/shadowmario:source
+```
+
+- 网页包（`pygbag`，用于网页可玩版本同步）：
+
+```bash
+butler push build/web.zip frank-owl/shadowmario:web
 ```
 
 ## 常见问题
