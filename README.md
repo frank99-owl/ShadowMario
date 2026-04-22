@@ -15,8 +15,8 @@ The project includes four playable levels, a scene-based UI flow, audio/save sys
 ## Gameplay Rules
 
 - Level 1: tutorial-style single-player stage
-- Level 2: single-layer moving-platform stage
-- Level 3: dual-layer platform stage with boss combat
+- Level 2: dual-layer moving-platform stage
+- Level 3: single-layer platform stage with boss combat
 - Level 4: two-player race with score-based winner resolution
 - End-flag rule: no entities are spawned to the right of the end flag in stage data
 
