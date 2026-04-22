@@ -1,8 +1,9 @@
+from shadow_mario.config import GameConfig
 from .moveable_entity import MoveableEntity
 
 
 class EndFlag(MoveableEntity):
-    """终点旗帜。"""
+    """End flag."""
 
-    def __init__(self, x, y, config):
-        super().__init__(x, y, config.end_flag_image, config.end_flag_speed)
+    def __init__(self, x: float, y: float, config: GameConfig) -> None:
+        super().__init__(x, y, config.end_flag_image, config.end_flag_speed, hitbox_scale=0.6)

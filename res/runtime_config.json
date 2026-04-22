@@ -1,0 +1,65 @@
+{
+  "colors": {
+    "text_primary": [255, 255, 255],
+    "text_secondary": [200, 200, 200],
+    "text_disabled": [100, 100, 100],
+    "text_hint": [150, 150, 150],
+    "button_bg": [40, 40, 60],
+    "button_bg_hover": [60, 60, 100],
+    "button_border": [60, 60, 80],
+    "button_border_hover": [100, 150, 255],
+    "button_glow": [100, 150, 255, 50],
+    "health_player": [0, 200, 0],
+    "health_boss": [200, 0, 0],
+    "health_bg": [60, 60, 60],
+    "health_border": [200, 200, 200],
+    "overlay_bg": [0, 0, 0, 160],
+    "victory": [255, 215, 0],
+    "defeat": [255, 60, 60],
+    "card_bg": [50, 50, 80],
+    "card_bg_hover": [70, 70, 120],
+    "card_border": [80, 80, 120],
+    "card_border_hover": [100, 150, 255],
+    "card_locked_bg": [40, 40, 50],
+    "card_locked_border": [60, 60, 70]
+  },
+  "ui": {
+    "button_width": 280,
+    "button_height": 50,
+    "button_spacing": 20,
+    "small_button_width": 260,
+    "small_button_height": 45,
+    "small_button_spacing": 15,
+    "card_width": 200,
+    "card_height": 140,
+    "card_spacing": 30,
+    "health_bar_width": 200,
+    "health_bar_height": 16,
+    "title_float_amplitude": 8,
+    "title_float_speed": 2.0,
+    "glow_alpha": 40,
+    "glow_padding": 4
+  },
+  "player": {
+    "hitbox_scale": 0.75,
+    "invincible_flash_interval": 10
+  },
+  "enemy": {
+    "hitbox_scale": 0.85
+  },
+  "coin": {
+    "hitbox_scale": 0.7
+  },
+  "powerup": {
+    "hitbox_scale": 0.7
+  },
+  "fireball": {
+    "hitbox_scale": 0.6
+  },
+  "endflag": {
+    "hitbox_scale": 0.6
+  },
+  "platform": {
+    "hitbox_scale": 1.0
+  }
+}

@@ -23,6 +23,10 @@ shadow-mario-web.zip
 *.apk
 *.tar.gz
 
+# Runtime outputs
+save.json
+screenshots/
+
 # IDE
 .vscode/
 .idea/

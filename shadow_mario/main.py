@@ -5,7 +5,7 @@ import pygame
 from shadow_mario.config import GameConfig
 from shadow_mario.level import Level
 
-# 游戏状态
+# Game states
 START_SCREEN = 0
 LEVEL_1 = 1
 LEVEL_2 = 2
@@ -16,20 +16,20 @@ END_SCREEN = 4
 def main():
     pygame.init()
 
-    # 先创建临时窗口获取尺寸信息，然后再初始化配置
+    # First create temp window to get size, then initialize config
     screen = pygame.display.set_mode((1024, 768))
     config = GameConfig()
     pygame.display.set_caption(config.title)
     pygame.display.set_mode((config.window_width, config.window_height))
     clock = pygame.time.Clock()
 
-    # 加载资源
+    # Load resources
     background_image = pygame.image.load(config.background_image).convert()
 
     current_state = START_SCREEN
     current_level = None
 
-    # 按键状态跟踪（模拟 wasPressed）
+    # Key state tracking (simulate wasPressed)
     s_pressed_last_frame = False
 
     running = True
@@ -45,25 +45,25 @@ def main():
                     running = False
                 if current_state == START_SCREEN:
                     if event.key == pygame.K_1:
-                        current_level = Level(config.level1_file, config)
+                        current_level = Level(config.level1_file, config, 1)
                         current_state = LEVEL_1
                     elif event.key == pygame.K_2:
-                        current_level = Level(config.level2_file, config)
+                        current_level = Level(config.level2_file, config, 2)
                         current_state = LEVEL_2
                     elif event.key == pygame.K_3:
-                        current_level = Level(config.level3_file, config)
+                        current_level = Level(config.level3_file, config, 3)
                         current_state = LEVEL_3
                 elif current_state == END_SCREEN:
                     if event.key == pygame.K_SPACE:
                         current_state = START_SCREEN
                         current_level = None
 
-        # 检测 S 键的 wasPressed
+        # Detect S key wasPressed
         if keys[pygame.K_s] and not s_pressed_last_frame:
             s_just_pressed = True
         s_pressed_last_frame = keys[pygame.K_s]
 
-        # 绘制背景
+        # Draw background
         screen.blit(background_image, (0, 0))
 
         if current_state == START_SCREEN:

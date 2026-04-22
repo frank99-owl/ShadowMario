@@ -1,118 +1,86 @@
 import asyncio
 import sys
-import os
 
 import pygame
-from shadow_mario.config import GameConfig
-from shadow_mario.level import Level
 
-# 游戏状态
-START_SCREEN = 0
-LEVEL_1 = 1
-LEVEL_2 = 2
-LEVEL_3 = 3
-END_SCREEN = 4
+from shadow_mario.config import GameConfig
+from shadow_mario.scenes import (
+    SceneManager,
+    MenuScene,
+    GameScene,
+    PauseScene,
+    GameOverScene,
+    SettingsScene,
+    LoadingScene,
+)
+from shadow_mario.scenes.level_select_scene import LevelSelectScene
 
 
 async def main():
     pygame.init()
-
-    # 先创建窗口再初始化配置（Config 需要 pygame.font）
-    screen = pygame.display.set_mode((1024, 768))
     config = GameConfig()
+
+    screen = pygame.display.set_mode((config.window_width, config.window_height))
     pygame.display.set_caption(config.title)
-    pygame.display.set_mode((config.window_width, config.window_height))
     clock = pygame.time.Clock()
 
-    # 加载背景
-    background_image = pygame.image.load(config.background_image).convert()
+    # Scene manager
+    manager = SceneManager(screen)
+    manager.register("menu", MenuScene)
+    manager.register("game", GameScene)
+    manager.register("pause", PauseScene)
+    manager.register("game_over", GameOverScene)
+    manager.register("settings", SettingsScene)
+    manager.register("level_select", LevelSelectScene)
+    manager.register("loading", LoadingScene)
 
-    current_state = START_SCREEN
-    current_level = None
-
-    # 按键状态跟踪
-    s_pressed_last_frame = False
+    # Initial scene
+    manager.replace("menu")
+    manager._apply_pending()
 
     running = True
     while running:
-        keys = pygame.key.get_pressed()
-        s_just_pressed = False
+        dt = clock.tick(60) / 1000.0  # seconds
 
-        for event in pygame.event.get():
+        events = pygame.event.get()
+        for event in events:
             if event.type == pygame.QUIT:
                 running = False
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
+
+        if not manager._stack:
+            break
+
+        # Handle events
+        manager.handle_events(events)
+
+        # Update scene
+        manager.update(dt)
+
+        # Check scene transition requests
+        if manager._stack:
+            current = manager._stack[-1]
+            if current.is_done():
+                next_name = current.get_next_scene_name()
+
+                if next_name == "quit":
                     running = False
-                if current_state == START_SCREEN:
-                    if event.key == pygame.K_1:
-                        current_level = Level(config.level1_file, config)
-                        current_state = LEVEL_1
-                    elif event.key == pygame.K_2:
-                        current_level = Level(config.level2_file, config)
-                        current_state = LEVEL_2
-                    elif event.key == pygame.K_3:
-                        current_level = Level(config.level3_file, config)
-                        current_state = LEVEL_3
-                elif current_state == END_SCREEN:
-                    if event.key == pygame.K_SPACE:
-                        current_state = START_SCREEN
-                        current_level = None
+                    continue
+                else:
+                    data = current.get_transition_data()
+                    manager.replace(next_name, data)
 
-        # 检测 S 键的 wasPressed
-        if keys[pygame.K_s] and not s_pressed_last_frame:
-            s_just_pressed = True
-        s_pressed_last_frame = keys[pygame.K_s]
+        # Apply pending transitions
+        manager._apply_pending()
 
-        # 绘制背景
-        screen.blit(background_image, (0, 0))
-
-        if current_state == START_SCREEN:
-            _draw_start_screen(screen, config)
-        elif current_state == END_SCREEN:
-            _draw_end_screen(screen, config, current_level)
-        else:
-            if current_level is not None:
-                current_level.update(keys, s_just_pressed, screen)
-                if current_level.is_win or current_level.is_loss:
-                    current_state = END_SCREEN
-
+        # Draw
+        manager.draw()
         pygame.display.flip()
-        clock.tick(60)
 
-        # pygbag 要求每帧 yield 控制权
+        # pygbag requires yielding control every frame
         await asyncio.sleep(0)
 
     pygame.quit()
     sys.exit()
-
-
-def _draw_start_screen(screen, config):
-    title_surf = config.title_font.render(config.msg_props.get("title", "SHADOW MARIO"), True, (255, 255, 255))
-    title_rect = title_surf.get_rect(center=(config.window_width // 2, int(config.title_y)))
-    screen.blit(title_surf, title_rect)
-
-    instructions = config.msg_props.get("instruction", "USE ARROW KEYS TO MOVE\nENTER LEVEL TO START - 1, 2, 3")
-    lines = instructions.split("\\n")
-    start_y = int(config.message_y)
-    for i, line in enumerate(lines):
-        surf = config.instruction_font.render(line, True, (255, 255, 255))
-        rect = surf.get_rect(center=(config.window_width // 2, start_y + i * 30))
-        screen.blit(surf, rect)
-
-
-def _draw_end_screen(screen, config, level):
-    if level.is_win:
-        msg = config.msg_props.get("gameWon", "Congratulations, You Won!\nPress Space to Continue")
-    else:
-        msg = config.msg_props.get("gameOver", "Game Over, You Lost!\nPress Space to Continue")
-    msg = msg.upper()
-    lines = msg.split("\\n")
-    start_y = int(config.message_y)
-    for i, line in enumerate(lines):
-        surf = config.instruction_font.render(line, True, (255, 255, 255))
-        rect = surf.get_rect(center=(config.window_width // 2, start_y + i * 30))
-        screen.blit(surf, rect)
 
 
 asyncio.run(main())
