@@ -3,6 +3,16 @@
 Shadow Mario is a 2D platform game built with Python and Pygame.  
 The project includes four playable levels, a scene-based UI flow, audio/save systems, and effect modules (particles, shake, transitions).
 
+## Screenshots
+
+| Menu | Level 1 |
+| --- | --- |
+| ![Main menu](docs/screenshots/menu.png) | ![Level 1 gameplay](docs/screenshots/level1.png) |
+
+| Level 3 — boss stage | Level 4 — two-player race |
+| --- | --- |
+| ![Level 3 dual-layer boss stage](docs/screenshots/level3-boss.png) | ![Level 4 two-player race](docs/screenshots/level4-race.png) |
+
 ## Features
 
 - Four levels with different gameplay pacing
@@ -123,7 +133,6 @@ make typecheck
 ## Documentation
 
 - Chinese version: [README_CN.md](README_CN.md)
-- Compatibility alias: [README_EN.md](README_EN.md)
 
 ## License
 

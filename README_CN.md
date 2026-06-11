@@ -3,6 +3,16 @@
 Shadow Mario 是一个基于 Python + Pygame 的 2D 平台游戏项目。  
 当前项目包含 4 个关卡、完整场景系统（菜单/加载/游戏/暂停/设置/结算）、音频与存档系统，以及粒子/震屏/过渡等效果模块。
 
+## 游戏截图
+
+| 主菜单 | 第 1 关 |
+| --- | --- |
+| ![主菜单](docs/screenshots/menu.png) | ![第 1 关](docs/screenshots/level1.png) |
+
+| 第 3 关（Boss 战） | 第 4 关（双人竞速） |
+| --- | --- |
+| ![第 3 关 Boss 战](docs/screenshots/level3-boss.png) | ![第 4 关双人竞速](docs/screenshots/level4-race.png) |
+
 ## 功能概览
 
 - 四个可游玩关卡
@@ -106,7 +116,6 @@ make check
 ## 其他文档
 
 - 英文主文档：[README.md](README.md)
-- 英文兼容入口：[README_EN.md](README_EN.md)
 
 ## 许可证
 
