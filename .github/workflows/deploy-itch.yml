@@ -10,6 +10,10 @@ on:
         description: "itch.io channel of the playable HTML upload (check the game's Uploads page)"
         required: true
         default: "web"
+      status_only:
+        description: "Only list the game's existing channels (butler status); build and push nothing"
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-itch
@@ -35,7 +39,15 @@ jobs:
       - name: Setup butler
         uses: remarkablegames/setup-butler@v2
 
+      - name: List itch.io channels
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        # Pushing to a channel name that does not exist creates a new upload
+        # instead of replacing the one the page plays, so check first.
+        run: butler status "${ITCH_GAME}"
+
       - name: Install build dependencies
+        if: ${{ !inputs.status_only }}
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -43,12 +55,15 @@ jobs:
           python -m playwright install --with-deps chromium-headless-shell
 
       - name: Build web bundle
+        if: ${{ !inputs.status_only }}
         run: PYTHON=python tools/build_web.sh
 
       - name: Boot it in a browser
+        if: ${{ !inputs.status_only }}
         run: python tools/web_smoke.py
 
       - name: Push to itch.io
+        if: ${{ !inputs.status_only }}
         env:
           BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
           CHANNEL: ${{ inputs.channel }}
