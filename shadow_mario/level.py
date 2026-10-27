@@ -163,6 +163,17 @@ class Level:
         dist = math.sqrt((e1.x - e2.x) ** 2 + (e1.y - e2.y) ** 2)
         return dist <= (r1 + r2)
 
+    def _reached_flag(self, player, flag) -> bool:
+        """Touching the flag, or being level with or past its pole.
+
+        The spec's test alone (centres within player + flag radius, the flag's
+        centre being mid-pole) misses a player who crosses the pole mid-jump:
+        the flag then scrolls away and the level never ends.
+        """
+        return (flag.x <= player.x
+                or self.check_collision(player, self.config.player_radius,
+                                        flag, self.config.end_flag_radius))
+
     def _trim_entities_right_of_end_flag(self):
         if not self.end_flags:
             return
@@ -388,7 +399,7 @@ class Level:
         for f in self.end_flags:
             f.update(keys)
             if (self.player.health > 0
-                    and self.check_collision(self.player, self.config.player_radius, f, self.config.end_flag_radius)):
+                    and self._reached_flag(self.player, f)):
                 if self.boss is None or self.boss.health <= 0:
                     self.is_win = True
 
@@ -559,7 +570,7 @@ class Level:
             f.update(self._no_keys)
             for p in players:
                 if (p.health > 0
-                        and self.check_collision(p, self.config.player_radius, f, self.config.end_flag_radius)):
+                        and self._reached_flag(p, f)):
                     self.finalize_race_by_score()
                     return
 

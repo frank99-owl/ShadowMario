@@ -213,3 +213,49 @@ def test_events_carry_level_coordinates():
         assert min(abs(event["x"] - x) for x in enemy_xs) < 50 + 42 + 5
     ticks = [e["tick"] for e in events]
     assert ticks == sorted(ticks)
+
+
+def _always(level: Level, frame: InputFrame, max_ticks: int) -> LevelRunner:
+    runner = LevelRunner(level, level.seed)
+    while not runner.is_finished() and runner.tick < max_ticks:
+        runner.step(frame)
+    return runner
+
+
+def _jump_across_flag(level: Level, run_key: int, jump_key: int, jump_at: int, ticks: int) -> None:
+    """Run right and take one full jump starting at tick `jump_at`."""
+    runner = LevelRunner(level, level.seed)
+    while not runner.is_finished() and runner.tick < ticks:
+        jumping = jump_at <= runner.tick < jump_at + 15
+        runner.step(InputFrame.of(run_key, jump_key) if jumping else InputFrame.of(run_key))
+
+
+def test_jumping_over_the_flag_still_ends_the_level(tmp_path):
+    # The flag reaches the player after ~100 ticks; a full jump started at
+    # tick 80 is near its apex then. The spec's radius test alone never
+    # fires for this run, so the flag scrolled away and the level never ended.
+    csv = _write_csv(tmp_path, ["PLATFORM,500,745", "PLAYER,100,687", "END_FLAG,600,670"])
+    level = Level(csv, GameConfig(), 1, seed=1)
+    _jump_across_flag(level, pygame.K_RIGHT, pygame.K_UP, jump_at=80, ticks=300)
+    assert level.is_win
+
+
+def test_passing_the_flag_with_the_boss_alive_does_not_win(tmp_path):
+    csv = _write_csv(tmp_path, ["PLATFORM,500,745", "PLAYER,100,687",
+                                "END_FLAG,600,670", "ENEMY_BOSS,590,680"])
+    level = Level(csv, GameConfig(), 3, seed=1)
+    level.player.invincibility_frames = 10_000  # keep the boss's fire out of it
+    _always(level, InputFrame.of(pygame.K_RIGHT), 200)
+    assert level.boss.health > 0
+    assert not level.is_win
+    level.boss.health = 0
+    _always(level, InputFrame(), 5)
+    assert level.is_win
+
+
+def test_race_jumping_over_the_flag_finishes_the_race(tmp_path):
+    csv = _write_csv(tmp_path, ["PLATFORM,400,745", "PLAYER,100,687", "PLAYER,100,687",
+                                "END_FLAG,500,670"])
+    level = Level(csv, GameConfig(), 4, seed=1)
+    _jump_across_flag(level, pygame.K_d, pygame.K_w, jump_at=55, ticks=300)
+    assert level.is_win and level.race_winner is not None

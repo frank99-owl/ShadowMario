@@ -86,6 +86,7 @@ old rule missed.
 | Squash and stretch on the player sprite (stretch on take-off, squash on landing scaled by fall speed, a brief red flash when hurt). Drawing only, the hitbox is unchanged. | The sprite was rigid; landings were signalled only by a screen shake. |
 | Screen shake no longer fires on every landing, only after long falls. | A shake on every landing makes the camera noise and drowns out the shakes that mean something. |
 | The red "you were hurt" screen flash fires only when the player is hurt. It used to fire on any shake above 4, which included the player's own hits on the boss. | Feedback bug: hitting the boss looked like being hit. |
+| The end flag counts once the player is level with or past its pole, not only on touching its centre. | Found playing the live itch.io build: crossing the pole mid-jump never touched the flag's 10 px radius (centred mid-pole), so the flag scrolled away and the level never ended. |
 | Level 1 teaches in the level: "HOLD RIGHT TO RUN" until the player moves, "UP TO JUMP - HOLD IT TO JUMP HIGHER" until they have jumped twice, "ENEMIES HURT - JUMP OVER THEM" after the first hit. | Level 1 had no in-level instructions at all; controls appeared only in the pause menu. |
 
 Deliberately not changed, because they are design decisions rather than feel
