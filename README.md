@@ -3,6 +3,8 @@
 Shadow Mario is a 2D platform game built with Python and Pygame.  
 The project includes four playable levels, a scene-based UI flow, audio/save systems, and effect modules (particles, shake, transitions).
 
+**Play it in the browser: [frank-owl.itch.io/shadowmario](https://frank-owl.itch.io/shadowmario)**
+
 ## Screenshots
 
 | Menu | Level 1 |
@@ -18,6 +20,10 @@ The project includes four playable levels, a scene-based UI flow, audio/save sys
 - Four levels with different gameplay pacing
 - Level 2/3 platform behavior aligned with classic project logic
 - Level 4 two-player race mode (P1 vs P2)
+- Forgiving jump in levels 1-3: jump buffer, coyote time, and a variable height (tap for a hop, hold for the full jump)
+- Impact feedback: hit-stop, squash and stretch, hurt flash
+- Level 1 teaches the controls in-level, with hints that react to what the player does
+- Runs at a fixed 60 ticks per second at any frame rate; every attempt can be saved and replayed exactly
 - Scene-based architecture: menu, loading, gameplay, pause, settings, game-over
 - Runtime configuration (`res/runtime_config.json`) for colors/UI/hitbox scaling
 - Save system for unlock state, highscores, best times, and audio settings
@@ -28,6 +34,7 @@ The project includes four playable levels, a scene-based UI flow, audio/save sys
 - Level 2: single-layer moving-platform stage
 - Level 3: dual-layer platform stage with boss combat
 - Level 4: two-player race with score-based winner resolution
+- End flag: reached once the player is level with or past its pole, in the air or on the ground (level 3 also needs the boss defeated)
 - End-flag rule: no entities are spawned to the right of the end flag in stage data
 
 ## Requirements
@@ -94,10 +101,22 @@ ShadowMarioPython/
 │   ├── scene_payloads.py      # Typed transition payloads
 │   ├── level.py               # Gameplay façade
 │   ├── level_components.py    # Level collaborators
+│   ├── simulation.py          # Fixed-timestep clock, input recording and replay
+│   ├── input.py               # Recordable per-tick key state
+│   ├── telemetry.py           # Local playtest event log
 │   ├── scenes/                # Scene implementations
 │   └── entities/              # Game entities
-├── tests/
-└── .github/workflows/ci.yml
+├── tools/
+│   ├── build_web.sh           # Browser (pygbag) bundle from a clean copy
+│   ├── web_smoke.py           # Boot the bundle and the itch.io zip in headless Chromium
+│   ├── make_replays.py        # Regenerate tests/replays/
+│   ├── replay.py              # Watch a saved attempt
+│   └── playtest_report.py     # Telemetry summary and per-level heatmaps
+├── docs/                      # FEEL_AUDIT, PLAYTEST, ASSETS, screenshots
+├── tests/                     # incl. tests/replays/ reference runs
+└── .github/workflows/
+    ├── ci.yml                 # Checks on 3.10/3.12, web build + browser boot
+    └── deploy-itch.yml        # Manual deploy to itch.io
 ```
 
 ## Development

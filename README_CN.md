@@ -3,6 +3,8 @@
 Shadow Mario 是一个基于 Python + Pygame 的 2D 平台游戏项目。  
 当前项目包含 4 个关卡、完整场景系统（菜单/加载/游戏/暂停/设置/结算）、音频与存档系统，以及粒子/震屏/过渡等效果模块。
 
+**在浏览器里直接玩：[frank-owl.itch.io/shadowmario](https://frank-owl.itch.io/shadowmario)**
+
 ## 游戏截图
 
 | 主菜单 | 第 1 关 |
@@ -18,6 +20,10 @@ Shadow Mario 是一个基于 Python + Pygame 的 2D 平台游戏项目。
 - 四个可游玩关卡
 - 第 2/3 关平台行为对齐经典实现逻辑
 - 第 4 关为双人竞速模式（P1 vs P2）
+- 第 1-3 关跳跃更宽容：跳跃缓冲、土狼时间、可变跳跃高度（轻点小跳，按住满跳）
+- 打击反馈：命中停顿、挤压拉伸、受伤闪红
+- 第 1 关在关卡内教操作，提示会根据玩家的动作出现和消失
+- 任何帧率下都固定每秒 60 tick；每次尝试都能保存并精确回放
 - 运行时配置支持（`res/runtime_config.json`）
 - 存档支持关卡解锁、最高分、最佳时间与音量设置
 
@@ -27,6 +33,7 @@ Shadow Mario 是一个基于 Python + Pygame 的 2D 平台游戏项目。
 - 第 2 关：单层移动平台关卡
 - 第 3 关：双层平台 + Boss 战关卡
 - 第 4 关：双人竞速，按得分判定胜负
+- 终点旗：角色在水平方向与旗杆齐平或越过旗杆即算到达，空中、地面都算（第 3 关还需先击败 Boss）
 - 终点规则：在关卡数据中，终点旗帜右侧不再生成实体
 
 ## 环境要求
@@ -88,10 +95,22 @@ ShadowMarioPython/
 │   ├── scene_payloads.py      # 场景跳转数据模型
 │   ├── level.py               # 关卡主编排
 │   ├── level_components.py    # 关卡协作组件
+│   ├── simulation.py          # 固定步长时钟、输入录制与回放
+│   ├── input.py               # 可录制的逐 tick 按键状态
+│   ├── telemetry.py           # 本地试玩事件日志
 │   ├── scenes/
 │   └── entities/
-├── tests/
-└── .github/workflows/ci.yml
+├── tools/
+│   ├── build_web.sh           # 从干净副本构建浏览器版（pygbag）
+│   ├── web_smoke.py           # 在无头 Chromium 中启动构建产物和 itch.io 的 zip
+│   ├── make_replays.py        # 重新生成 tests/replays/
+│   ├── replay.py              # 重看保存的尝试
+│   └── playtest_report.py     # 遥测汇总与各关热力图
+├── docs/                      # FEEL_AUDIT、PLAYTEST、ASSETS、截图
+├── tests/                     # 含 tests/replays/ 参考回放
+└── .github/workflows/
+    ├── ci.yml                 # 3.10/3.12 检查，web 构建与浏览器启动
+    └── deploy-itch.yml        # 手动部署到 itch.io
 ```
 
 ## 开发与检查
