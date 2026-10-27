@@ -1,4 +1,5 @@
 import math
+import random
 from dataclasses import dataclass
 
 import pygame
@@ -6,6 +7,7 @@ import pygame
 from .audio import get_audio_manager
 from .entities.double_score_power import DoubleScorePower
 from .entities.fireball import Fireball
+from .entities.flying_platform import FlyingPlatform
 from .level_components import LevelEntityLoader, LevelHudRenderer, PlatformContactResolver
 from .particles import ParticleSystem
 
@@ -62,10 +64,22 @@ class Level:
     UNIFIED_HEALTH_BAR_COLOR = (100, 240, 120)
     UNIFIED_INV_BAR_COLOR = (90, 180, 255)
     PLAYER_FIRE_COOLDOWN_FRAMES = 8
+    # Hit-stop: ticks the simulation holds still so an impact reads as an impact.
+    HITSTOP_PLAYER_HURT = 5
+    HITSTOP_BOSS_HIT = 4
+    HITSTOP_BOSS_DEATH = 10
 
-    def __init__(self, csv_path, config, level_number=1, audio_manager=None):
+    def __init__(self, csv_path, config, level_number=1, audio_manager=None, seed=None):
         self.config = config
         self.level_number = level_number
+        # Every random decision in the simulation comes from this seed, so a
+        # recorded input sequence replays to the same outcome.
+        self.seed = seed if seed is not None else random.randrange(2**31)
+        self.ticks = 0
+        self.hitstop_ticks = 0
+        self.player_hits = 0
+        self.player_jumps = 0
+        self._events: list[dict] = []
         self.camera_mode = (level_number == 4)
         self.particles = ParticleSystem()
         self._audio = audio_manager or get_audio_manager()
@@ -104,7 +118,7 @@ class Level:
         self.best_time = None
         self._boss_death_fx_done = False
 
-        entities = LevelEntityLoader.load(csv_path, config, level_number)
+        entities = LevelEntityLoader.load(csv_path, config, level_number, rng=random.Random(self.seed))
         self.player = entities.player
         self.player2 = entities.player2
         self.platforms = entities.platforms
@@ -118,6 +132,31 @@ class Level:
         self._trim_entities_right_of_end_flag()
         self._init_level_specific_state()
         self.total_coins = len(self.coins)
+        # Levels 1-3 scroll the world instead of the player; the ground
+        # platform's drift converts a screen x back into a level x.
+        self._ground = next((p for p in self.platforms if not isinstance(p, FlyingPlatform)), None)
+        self._ground_origin_x = self._ground.x if self._ground is not None else 0.0
+
+    def world_x(self, entity) -> float:
+        """Entity x in level coordinates (the CSV's frame), not screen coordinates."""
+        if self.camera_mode or self._ground is None:
+            return entity.x
+        return entity.x + (self._ground_origin_x - self._ground.x)
+
+    def drain_events(self) -> list[dict]:
+        """Return and clear gameplay events (damage, death) since the last call."""
+        events, self._events = self._events, []
+        return events
+
+    def _emit(self, kind: str, player, **data) -> None:
+        self._events.append({
+            "kind": kind,
+            "tick": self.ticks,
+            "player": 2 if player is self.player2 and player is not None else 1,
+            "x": round(self.world_x(player), 1),
+            "y": round(player.y, 1),
+            **data,
+        })
 
     @staticmethod
     def check_collision(e1, r1, e2, r2):
@@ -144,6 +183,11 @@ class Level:
 
     def update(self, keys, s_just_pressed, screen=None):
         frame_dt = 1.0 / 60.0
+        self.ticks += 1
+        if self.hitstop_ticks > 0:
+            self.hitstop_ticks -= 1
+            self.particles.update(frame_dt)
+            return
         if not self.is_win and not self.is_loss:
             self.elapsed_time += frame_dt
 
@@ -236,10 +280,9 @@ class Level:
     # ========== Original levels 1-3 logic ==========
 
     def _update_original(self, keys, s_just_pressed):
-        was_player_jumping = self.player.is_jumping
+        was_alive = self.player.health > 0
         self.player.update(keys)
-        if (self.player.health > 0 and not was_player_jumping and self.player.is_jumping
-                and self.player.get_vertical_speed() < 0):
+        if self.player.health > 0 and self.player.jumped_this_tick:
             self._on_player_jump(self.player)
 
         # Player shoots fireball.
@@ -290,7 +333,7 @@ class Level:
                     and not self.player.is_invincible()):
                 self.player.health -= self.config.enemy_damage
                 e.set_has_inflicted_damage(True)
-                self._on_damage(self.player.x, self.player.y)
+                self._on_damage(self.player, "enemy")
 
         for c in self.coins:
             c.update(keys)
@@ -324,6 +367,7 @@ class Level:
                     self.boss.health -= self.config.fireball_damage
                     self.particles.emit("damage_hit", self.boss.x, self.boss.y)
                     self.shake_intensity = max(self.shake_intensity, 7.0)
+                    self.hitstop_ticks = max(self.hitstop_ticks, self.HITSTOP_BOSS_HIT)
                     self._audio.play_sfx("boss_hit")
                     if self.boss.health <= 0:
                         self._trigger_boss_death_fx()
@@ -333,7 +377,7 @@ class Level:
                         and self.check_collision(fb, self.config.fireball_radius, self.player, self.config.player_radius)
                         and not self.player.is_invincible()):
                     self.player.health -= self.config.fireball_damage
-                    self._on_damage(self.player.x, self.player.y)
+                    self._on_damage(self.player, "fireball")
                     fb.active = False
 
             if not fb.active:
@@ -347,6 +391,9 @@ class Level:
                     and self.check_collision(self.player, self.config.player_radius, f, self.config.end_flag_radius)):
                 if self.boss is None or self.boss.health <= 0:
                     self.is_win = True
+
+        if was_alive and self.player.health <= 0:
+            self._emit("death", self.player, cause="health")
 
         if self.player.y > self.config.window_height:
             self.is_loss = True
@@ -376,21 +423,33 @@ class Level:
         self._hud_renderer.draw_status(screen, self.player, self.boss)
 
     def _on_player_jump(self, player):
+        self.player_jumps += 1
         direction = 1 if player.facing_right else -1
         self.particles.emit("jump_dust", player.x, player.y + 28, direction=direction)
         self._audio.play_sfx("jump")
 
+    # Only a long fall shakes the screen; shaking on every landing turns the
+    # camera into noise and drowns out the shakes that mean something.
+    HEAVY_LANDING_SPEED = 22.0
+
     def _on_player_land(self, player):
+        player.on_land()
         self.particles.emit("land_dust", player.x, player.y + 30)
-        self.shake_intensity = max(self.shake_intensity, 1.8)
+        if player.last_impact_speed >= self.HEAVY_LANDING_SPEED:
+            self.shake_intensity = max(self.shake_intensity, 2.5)
         self._audio.play_sfx("land")
 
-    def _on_damage(self, x, y):
-        self.particles.emit("damage_hit", x, y)
+    def _on_damage(self, player, source):
+        self.particles.emit("damage_hit", player.x, player.y)
         self.shake_intensity = max(self.shake_intensity, 5.0)
+        self.hitstop_ticks = max(self.hitstop_ticks, self.HITSTOP_PLAYER_HURT)
+        self.player_hits += 1
+        player.on_hurt()
+        self._emit("damage", player, source=source)
         self._audio.play_sfx("hurt")
 
     def _on_player_knockout(self, player):
+        self._emit("death", player, cause="health")
         self.particles.emit("damage_hit", player.x, player.y)
         self.particles.emit("combo_burst", player.x, player.y)
         self.particles.emit("land_dust", player.x, player.y + 24)
@@ -413,6 +472,7 @@ class Level:
         if self.boss is None or self._boss_death_fx_done:
             return
         self._boss_death_fx_done = True
+        self.hitstop_ticks = max(self.hitstop_ticks, self.HITSTOP_BOSS_DEATH)
         self.particles.emit("boss_death", self.boss.x, self.boss.y)
         self.shake_intensity = max(self.shake_intensity, 12.0)
 
@@ -445,14 +505,12 @@ class Level:
 
     def _update_race(self, keys, s_just_pressed):
         players = [p for p in [self.player, self.player2] if p is not None]
-        was_jumping = {id(p): p.is_jumping for p in players}
 
         # Enable horizontal movement
         for p in players:
             p.enable_horizontal_move = True
             p.update(keys)
-            if (p.health > 0 and not was_jumping[id(p)] and p.is_jumping
-                    and p.get_vertical_speed() < 0):
+            if p.health > 0 and p.jumped_this_tick:
                 self._on_player_jump(p)
 
         self._update_platform_contacts(players, keys, scroll_static_platforms=False)
@@ -470,7 +528,7 @@ class Level:
                     if p.health < 0:
                         p.health = 0.0
                     e.set_has_inflicted_damage(True)
-                    self._on_damage(p.x, p.y)
+                    self._on_damage(p, "enemy")
                     if was_alive and p.health <= 0:
                         self._on_player_knockout(p)
 
@@ -516,6 +574,7 @@ class Level:
         # Fall detection (race mode has no respawn)
         for p in players:
             if p.y > self.config.window_height and p.health > 0:
+                self._emit("death", p, cause="fall")
                 winner = self.player2 if p is self.player else self.player
                 self._set_race_winner(winner)
                 self.is_win = True

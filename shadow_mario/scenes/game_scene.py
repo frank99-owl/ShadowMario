@@ -5,8 +5,11 @@ from typing import List
 
 import pygame
 
+from shadow_mario.input import InputFrame
 from shadow_mario.level import Level
 from shadow_mario.scene_payloads import GameOverPayload, LevelStartPayload, SettingsRoutePayload
+from shadow_mario.simulation import FixedStepClock, LevelRunner
+from shadow_mario.telemetry import get_telemetry
 from shadow_mario.tutorial import TutorialHint, TutorialManager
 from shadow_mario.transition import FadeTransition
 from shadow_mario.entities.player import Player
@@ -25,8 +28,13 @@ class GameScene(Scene):
         self.config = self.context.config
         self._bg_image = pygame.image.load(self.config.background_image).convert()
         self._level: Level | None = None
+        self._runner: LevelRunner | None = None
+        self._clock = FixedStepClock()
+        self._telemetry = get_telemetry()
+        self._attempt_open = False
+        self._seen_player_hits = 0
+        self._replay_frames: list[InputFrame] | None = None
         self._level_number = 1
-        self._s_pressed_last = False
         self._paused = False
         self._pause_selected = 0
         self._pause_buttons: list[dict] = []
@@ -56,6 +64,7 @@ class GameScene(Scene):
 
         # Screenshot notification
         self._screenshot_notify_timer = 0.0
+        self._notify_text = "Screenshot saved!"
         self._screenshot_dir = self._ensure_screenshot_dir()
 
         # Camera zoom for race mode (level 4)
@@ -81,6 +90,7 @@ class GameScene(Scene):
         filename = f"screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         filepath = os.path.join(self._screenshot_dir, filename)
         pygame.image.save(screen, filepath)
+        self._notify_text = "Screenshot saved!"
         self._screenshot_notify_timer = 2.0
 
     def _build_pause_buttons(self) -> None:
@@ -106,6 +116,33 @@ class GameScene(Scene):
         cx = self.config.window_width // 2
         font = self.config.instruction_font
 
+        if self._level_number == 1 and self._level is not None:
+            # Level 1 is the first thing a visitor plays; before this it had no
+            # in-level instructions at all (controls were only in the pause menu).
+            level = self._level
+            top_y = 200
+
+            def travelled() -> float:
+                return level.world_x(level.player) - level.player.spawn_x
+
+            self._tutorial.add_hint(TutorialHint(
+                "HOLD RIGHT TO RUN", cx, top_y, font,
+                fade_in_duration=0.3, stay_duration=6.0, fade_out_duration=0.3,
+                until=lambda: travelled() > 60,
+            ))
+            self._tutorial.add_hint(TutorialHint(
+                "UP TO JUMP - HOLD IT TO JUMP HIGHER", cx, top_y, font,
+                fade_in_duration=0.3, stay_duration=5.0, fade_out_duration=0.4,
+                trigger=lambda: travelled() > 80,
+                until=lambda: level.player_jumps >= 2,
+            ))
+            self._tutorial.add_hint(TutorialHint(
+                "ENEMIES HURT - JUMP OVER THEM", cx, top_y, font,
+                fade_in_duration=0.2, stay_duration=2.5, fade_out_duration=0.4,
+                trigger=lambda: level.player_hits >= 1,
+            ))
+            self._tutorial.start()
+
         if self._level_number == 4:
             # Place hints near bottom of screen, below platforms
             bottom_y = self.config.window_height - 60
@@ -119,17 +156,73 @@ class GameScene(Scene):
             ))
             self._tutorial.start()
 
-    def _load_level(self, level_number: int) -> None:
+    def _load_level(self, level_number: int, seed: int | None = None) -> None:
         level_file = self._get_level_file(level_number)
-        self._level = Level(level_file, self.config, level_number, audio_manager=self.context.audio)
+        self._level = Level(level_file, self.config, level_number,
+                            audio_manager=self.context.audio, seed=seed)
         self._level.best_time = self.context.save.get_best_time(level_number)
+        self._runner = LevelRunner(self._level, self._level.seed)
+        self._clock.reset()
+        self._seen_player_hits = 0
+        self._telemetry.level_start(level_number, self._level.seed)
+        self._attempt_open = True
+
+    def _close_attempt(self, outcome: str) -> None:
+        """Record how this attempt ended (win, loss, restart, quit), once."""
+        if not self._attempt_open or self._level is None or self._runner is None:
+            return
+        self._attempt_open = False
+        self._flush_level_events()
+        snapshot = self._level.snapshot()
+        player = self._level.player
+        self._telemetry.level_end(
+            self._level_number,
+            outcome=outcome,
+            tick=self._runner.tick,
+            x=round(self._level.world_x(player), 1) if player is not None else None,
+            coins=snapshot.collected_coins,
+            total_coins=snapshot.total_coins,
+            hits=self._level.player_hits,
+        )
+
+    def _flush_level_events(self) -> None:
+        if self._level is None:
+            return
+        for event in self._level.drain_events():
+            self._telemetry.gameplay_event(self._level_number, event)
+
+    def play_replay(self, replay) -> None:
+        """Drive this attempt from recorded input instead of the keyboard (tools/replay.py)."""
+        self._level_number = replay.level
+        self._load_level(replay.level, seed=replay.seed)
+        self._replay_frames = list(replay.frames())
+        self._tutorial = TutorialManager()
+        self._build_tutorial()
+
+    def _next_input(self, live: InputFrame) -> InputFrame:
+        if self._replay_frames is None:
+            return live
+        tick = self._runner.tick
+        return self._replay_frames[tick] if tick < len(self._replay_frames) else InputFrame()
+
+    def save_replay(self) -> str | None:
+        """Write the current attempt's input to replays/ and return the path."""
+        if self._runner is None:
+            return None
+        import os
+        from datetime import datetime
+        root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        name = f"level{self._level_number}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        path = os.path.join(root, "replays", name)
+        self._runner.replay.save(path)
+        return path
 
     def on_enter(self, data: dict | None = None) -> None:
         super().on_enter(data)
         payload = LevelStartPayload.from_mapping(data)
+        self._replay_frames = None
         self._level_number = payload.level
         self._load_level(self._level_number)
-        self._s_pressed_last = False
         self._paused = False
         self._pause_selected = 0
         self._damage_flash = 0.0
@@ -146,6 +239,11 @@ class GameScene(Scene):
 
         # Fade in
         self._transition.start_fade_in(duration=0.4)
+
+    def on_exit(self) -> None:
+        # Leaving for settings rebuilds the level on return, so that ends the attempt too.
+        self._close_attempt("quit")
+        super().on_exit()
 
     def _get_level_file(self, level: int) -> str:
         """Get level file path based on level number."""
@@ -164,6 +262,7 @@ class GameScene(Scene):
 
         for event in events:
             if event.type == pygame.QUIT:
+                self._close_attempt("quit")
                 self._switch_to("quit")
                 return
 
@@ -171,6 +270,13 @@ class GameScene(Scene):
                 if event.key == pygame.K_ESCAPE:
                     self._paused = not self._paused
                     self._pause_selected = 0
+                    return
+
+                # F9 saves this attempt's input as a replay (playtest review)
+                if event.key == pygame.K_F9:
+                    if self.save_replay():
+                        self._notify_text = "Replay saved!"
+                        self._screenshot_notify_timer = 2.0
                     return
 
                 # F12 screenshot
@@ -206,8 +312,8 @@ class GameScene(Scene):
             self._paused = False
         elif action == "restart":
             self._paused = False
+            self._close_attempt("restart")
             self._load_level(self._level_number)
-            self._s_pressed_last = False
             self._tutorial = TutorialManager()
             self._build_tutorial()
             self._race_camera_state = None
@@ -217,6 +323,7 @@ class GameScene(Scene):
                 SettingsRoutePayload(return_to="game", level=self._level_number),
             )
         elif action == "quit_to_menu":
+            self._close_attempt("quit")
             self._start_transition_to("menu")
 
     def _start_transition_to(self, scene_name: str, data: dict | None = None) -> None:
@@ -243,15 +350,14 @@ class GameScene(Scene):
         if self._transition.is_active():
             return
 
-        keys = pygame.key.get_pressed()
-
-        # S key shoots fireball (wasPressed)
-        s_just_pressed = False
-        if keys[pygame.K_s] and not self._s_pressed_last:
-            s_just_pressed = True
-        self._s_pressed_last = keys[pygame.K_s]
-
-        self._level.update(keys, s_just_pressed)
+        # Input is sampled once per rendered frame and held for every tick that
+        # frame covers; the level always advances at 60 ticks per real second.
+        frame = InputFrame.from_pressed(pygame.key.get_pressed())
+        for _ in range(self._clock.advance(dt)):
+            if self._runner.is_finished():
+                break
+            self._runner.step(self._next_input(frame))
+        self._flush_level_events()
         snapshot = self._level.snapshot()
 
         # Update zoom and check falling behind (race mode only)
@@ -274,8 +380,10 @@ class GameScene(Scene):
             if self._damage_flash < 0:
                 self._damage_flash = 0
 
-        # Check for damage to trigger flash
-        if self._level.player and snapshot.shake_intensity > 4:
+        # Red flash only when the player was hurt. Keying it off shake made the
+        # player's own hits on the boss flash the screen red too.
+        if self._level.player_hits > self._seen_player_hits:
+            self._seen_player_hits = self._level.player_hits
             self._damage_flash = 0.5
 
         # Check for respawn to trigger flash effect
@@ -299,6 +407,7 @@ class GameScene(Scene):
 
         # Check win
         if snapshot.is_win:
+            self._close_attempt("win")
             result = self._level.build_result()
             self._start_transition_to("game_over", GameOverPayload(
                 won=True,
@@ -315,6 +424,7 @@ class GameScene(Scene):
 
         # Check loss (no lives left)
         if snapshot.is_loss:
+            self._close_attempt("loss")
             result = self._level.build_result()
             self._start_transition_to("game_over", GameOverPayload(
                 won=False,
@@ -435,7 +545,7 @@ class GameScene(Scene):
         # Screenshot saved notification
         if self._screenshot_notify_timer > 0:
             notify_alpha = int(255 * min(1.0, self._screenshot_notify_timer))
-            notify_surf = self.config.instruction_font.render("Screenshot saved!", True, (100, 255, 150))
+            notify_surf = self.config.instruction_font.render(self._notify_text, True, (100, 255, 150))
             notify_rect = notify_surf.get_rect(
                 center=(self.config.window_width // 2, self.config.window_height - 80)
             )

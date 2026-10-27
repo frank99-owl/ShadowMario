@@ -1,5 +1,7 @@
 """Tutorial hint system for new players."""
 
+from typing import Callable
+
 import pygame
 
 
@@ -15,7 +17,16 @@ class TutorialHint:
         fade_in_duration: float = 0.5,
         stay_duration: float = 3.0,
         fade_out_duration: float = 0.5,
+        trigger: Callable[[], bool] | None = None,
+        until: Callable[[], bool] | None = None,
     ) -> None:
+        # trigger: the hint waits, invisible, until this returns True.
+        # until: the hint holds on screen until this returns True (capped by
+        # stay_duration), then fades. Teaching by what the player did, not by
+        # the clock, keeps a hint from vanishing before it was needed.
+        self.trigger = trigger
+        self.until = until
+        self._triggered = trigger is None
         self.text = text
         self.x = x
         self.y = y
@@ -38,6 +49,16 @@ class TutorialHint:
     def update(self, dt: float) -> None:
         if self._done:
             return
+
+        if not self._triggered:
+            if not self.trigger():
+                return
+            self._triggered = True
+
+        hold_end = self.fade_in_duration + self.stay_duration
+        if (self.until is not None and self.fade_in_duration <= self._time < hold_end
+                and self.until()):
+            self._time = hold_end
 
         self._time += dt
 

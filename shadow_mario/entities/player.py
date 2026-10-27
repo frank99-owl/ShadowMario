@@ -16,6 +16,24 @@ class Player(GameEntity):
 
     MOVE_SPEED = 5.0
 
+    # Levels 1-3 keep the original spec's arc (-20 px/tick, +1 px/tick per tick)
+    # and add the forgiveness the spec lacked. Velocities stay integers so
+    # positions stay on whole pixels.
+    LEGACY_JUMP_VELOCITY = -20.0
+    LEGACY_GRAVITY = 1.0
+    # Releasing UP while rising faster than this caps the rise: a tap is a hop
+    # (about 75 px), a hold is the full 210 px jump.
+    LEGACY_JUMP_CUT_VELOCITY = -10.0
+    LEGACY_COYOTE_TICKS = 6  # a jump still counts this many ticks after walking off an edge
+    LEGACY_BUFFER_TICKS = 6  # a press this many ticks before landing jumps on touchdown
+
+    # Squash and stretch are drawn only; they never change the hitbox.
+    SQUASH_DECAY = 0.72
+    JUMP_STRETCH = -0.22
+    LAND_SQUASH_PER_SPEED = 0.018
+    LAND_SQUASH_MAX = 0.32
+    HURT_FLASH_TICKS = 14
+
     def __init__(self, x: float, y: float, config: GameConfig, is_player2: bool = False,
                  swap_controls: bool = False, legacy_movement: bool = False) -> None:
         super().__init__(x, y, config.player_image_right, hitbox_scale=0.75)
@@ -66,7 +84,29 @@ class Player(GameEntity):
         # Jump buffer: time since jump was pressed while in air
         self._jump_buffer_timer = 0.0
 
+        # Legacy (levels 1-3) forgiveness counters, in ticks
+        self._buffer_ticks = 0
+        self._air_ticks = 0
+        self._jumped_since_ground = False
+
+        # Read by Level after update(): a jump started this tick
+        self.jumped_this_tick = False
+        self.prev_y = y
+        self.last_impact_speed = 0.0
+
+        # Draw-only feedback state
+        self._squash = 0.0
+        self._hurt_flash_ticks = 0
+
     def update(self, keys) -> None:
+        self.prev_y = self.y
+        self.jumped_this_tick = False
+        self._squash *= self.SQUASH_DECAY
+        if abs(self._squash) < 0.01:
+            self._squash = 0.0
+        if self._hurt_flash_ticks > 0:
+            self._hurt_flash_ticks -= 1
+
         # Power-up timers
         if self.invincibility_frames > 0:
             self.invincibility_frames -= 1
@@ -158,23 +198,59 @@ class Player(GameEntity):
         self.is_jumping = True  # Assume in air until platform collision says otherwise
 
     def _update_legacy_jump(self, jump_pressed: bool) -> None:
-        """Legacy jump physics from the original GitHub version."""
-        if jump_pressed and not self._jump_pressed_last_frame and not self.is_jumping:
-            self.vertical_speed = -20.0
-            self.is_jumping = True
+        """Original-spec jump arc plus buffer, coyote time and a variable height."""
+        if jump_pressed and not self._jump_pressed_last_frame:
+            self._buffer_ticks = self.LEGACY_BUFFER_TICKS
+        elif self._buffer_ticks > 0:
+            self._buffer_ticks -= 1
         self._jump_pressed_last_frame = jump_pressed
+
+        # is_jumping still holds last tick's platform contact result here.
+        if self.is_jumping:
+            self._air_ticks += 1
+        else:
+            self._air_ticks = 0
+            self._jumped_since_ground = False
+
+        can_jump = not self.is_jumping or (
+            not self._jumped_since_ground and self._air_ticks <= self.LEGACY_COYOTE_TICKS
+        )
+        if self._buffer_ticks > 0 and can_jump:
+            self._buffer_ticks = 0
+            self._jumped_since_ground = True
+            self.vertical_speed = self.LEGACY_JUMP_VELOCITY
+            self.is_jumping = True
+            self._start_jump_feedback()
+
+        if (self._jumped_since_ground and not jump_pressed
+                and self.vertical_speed < self.LEGACY_JUMP_CUT_VELOCITY):
+            self.vertical_speed = self.LEGACY_JUMP_CUT_VELOCITY
 
         if self.is_jumping:
             self.y += self.vertical_speed
-            self.vertical_speed += 1.0
+            self.vertical_speed += self.LEGACY_GRAVITY
 
     def _do_jump(self) -> None:
         """Execute jump."""
         self.vertical_speed = self.JUMP_VELOCITY
         self.is_jumping = True
+        self._start_jump_feedback()
+
+    def _start_jump_feedback(self) -> None:
+        self.jumped_this_tick = True
+        self._squash = self.JUMP_STRETCH
+
+    def on_land(self) -> None:
+        """Squash on touchdown, harder for faster falls."""
+        self._squash = min(self.LAND_SQUASH_MAX, self.last_impact_speed * self.LAND_SQUASH_PER_SPEED)
+
+    def on_hurt(self) -> None:
+        self._hurt_flash_ticks = self.HURT_FLASH_TICKS
+        self._squash = 0.18
 
     def land_on_platform(self, platform_y: float) -> None:
         """Called when player lands on a platform."""
+        self.last_impact_speed = self.vertical_speed
         self.y = platform_y
         self.vertical_speed = 0.0
         self.is_jumping = False
@@ -221,7 +297,20 @@ class Player(GameEntity):
             screen.blit(dead_img, dead_rect)
             return
 
-        rect = current_image.get_rect(center=(draw_x, draw_y))
+        if self._squash:
+            # Scale around the feet so a squash reads as weight, not as sinking.
+            w = max(1, round(current_image.get_width() * (1 + self._squash)))
+            h = max(1, round(current_image.get_height() * (1 - self._squash)))
+            current_image = pygame.transform.scale(current_image, (w, h))
+            rect = current_image.get_rect(midbottom=(draw_x, draw_y + self.image_right.get_height() // 2))
+        else:
+            rect = current_image.get_rect(center=(draw_x, draw_y))
+
+        if self._hurt_flash_ticks > 0 and self._hurt_flash_ticks % 4 < 2:
+            hurt_img = current_image.copy()
+            hurt_img.fill((255, 90, 90, 255), special_flags=pygame.BLEND_RGBA_MULT)
+            screen.blit(hurt_img, rect)
+            return
 
         # Invincibility flashing effect
         if self.invincibility_frames > 0 and self.invincibility_frames % 6 < 3:

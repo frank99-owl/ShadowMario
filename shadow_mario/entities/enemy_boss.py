@@ -1,6 +1,5 @@
 import random
 
-
 from shadow_mario.config import GameConfig
 from .moveable_entity import MoveableEntity
 
@@ -8,11 +7,12 @@ from .moveable_entity import MoveableEntity
 class EnemyBoss(MoveableEntity):
     """Boss enemy, has health and shoots fireballs."""
 
-    def __init__(self, x: float, y: float, config: GameConfig) -> None:
+    def __init__(self, x: float, y: float, config: GameConfig,
+                 rng: random.Random | None = None) -> None:
         super().__init__(x, y, config.boss_image, config.boss_speed, hitbox_scale=0.85)
         self.health = config.boss_health
         self.frame_counter = 0
-        self._rand = random.Random()
+        self._rand = rng or random.Random()
         self.screen_height = config.window_height
 
     def update(self, keys) -> None:
@@ -27,5 +27,5 @@ class EnemyBoss(MoveableEntity):
     def should_shoot(self, player_x: float, activation_radius: float) -> bool:
         if self.health > 0 and abs(self.x - player_x) >= activation_radius:
             if self.frame_counter % 100 == 0:
-                return random.choice([True, False])
+                return self._rand.choice([True, False])
         return False

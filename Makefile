@@ -9,6 +9,6 @@ test:
 	$(PYTHON) -m pytest -q
 
 typecheck:
-	$(PYTHON) -m py_compile main.py shadow_mario/*.py shadow_mario/entities/*.py shadow_mario/scenes/*.py
+	$(PYTHON) -m py_compile main.py shadow_mario/*.py shadow_mario/entities/*.py shadow_mario/scenes/*.py tools/*.py
 
 check: lint typecheck test

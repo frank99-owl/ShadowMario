@@ -1,10 +1,13 @@
+import random
+
 from .platform import Platform
 
 
 class FlyingPlatform(Platform):
     """Flying platform that moves back and forth within a fixed range."""
 
-    def __init__(self, x, y, config, scroll_with_world=True, randomize_direction=True, initial_direction=None):
+    def __init__(self, x, y, config, scroll_with_world=True, randomize_direction=True, initial_direction=None,
+                 rng=None):
         super().__init__(x, y, config, config.flying_platform_image, config.flying_platform_speed)
         self.scroll_with_world = scroll_with_world
         self.random_speed = config.flying_platform_random_speed
@@ -13,8 +16,7 @@ class FlyingPlatform(Platform):
         if initial_direction in (-1, 1):
             self.direction = initial_direction
         elif randomize_direction:
-            import random
-            self.direction = 1 if random.choice([True, False]) else -1
+            self.direction = 1 if (rng or random.Random()).choice([True, False]) else -1
         else:
             self.direction = 1
         self.last_random_move = 0

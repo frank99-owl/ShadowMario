@@ -59,6 +59,7 @@ python3 main.py
 - `1` / `2` / `3` / `4`：菜单快速进关
 - `Esc`：返回/暂停/退出（视场景而定）
 - `F12`：截图到 `screenshots/`
+- `F9`（关卡内）：把本次尝试的输入存到 `replays/`（见下方“试玩”）
 
 ### 第 1-3 关（单人）
 
@@ -106,6 +107,35 @@ pip install -r requirements-dev.txt
 ```bash
 make check
 ```
+
+### 固定步长与回放
+
+关卡固定以每秒 60 tick 运行，与显示帧率无关；所有随机数来自每关的种子，所以同一段录制输入总能回放出同样的结果。`tests/replays/level1-4.json` 是参考通关录像，CI 会在 30/60/144fps 下回放。若有意改动了关卡玩法，用下面的命令重新生成，并在提交说明里写明原因：
+
+```bash
+python tools/make_replays.py
+```
+
+### Web 构建
+
+```bash
+pip install pygbag==0.9.3 playwright && python -m playwright install chromium-headless-shell
+tools/build_web.sh          # 从干净副本构建 build/web/ 与 build/web.zip
+python tools/web_smoke.py   # 在无头 Chromium 中启动，出现 Python 报错即失败
+```
+
+CI 每次推送都会跑这两步并保留 `web.zip`。发布到 itch.io 需手动触发 `Deploy web build to itch.io` 工作流。
+
+### 试玩
+
+桌面版会把受伤、死亡、关卡结果记录到本地 `telemetry/events.jsonl`（不上传，`SHADOW_MARIO_TELEMETRY=0` 可关闭）。试玩后：
+
+```bash
+python tools/playtest_report.py             # 汇总表 + 各关热力图，输出到 telemetry/report/
+python tools/replay.py replays/<file>.json  # 重看用 F9 保存的尝试
+```
+
+试玩脚本与记录表见 [docs/PLAYTEST.md](docs/PLAYTEST.md)；测量与改动记录见 [docs/FEEL_AUDIT.md](docs/FEEL_AUDIT.md)；素材来源见 [docs/ASSETS.md](docs/ASSETS.md)。
 
 ## 常见问题
 

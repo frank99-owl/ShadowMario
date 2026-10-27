@@ -1,5 +1,6 @@
 """Focused collaborators used by Level."""
 
+import random
 from dataclasses import dataclass
 from typing import Callable, Iterable
 
@@ -37,7 +38,9 @@ class LevelEntityLoader:
     """Build entity collections from CSV level data."""
 
     @staticmethod
-    def load(csv_path: str, config, level_number: int) -> LevelEntities:
+    def load(csv_path: str, config, level_number: int,
+             rng: random.Random | None = None) -> LevelEntities:
+        rng = rng or random.Random()
         data = read_csv(csv_path)
         player_count = 0
         player = None
@@ -76,11 +79,11 @@ class LevelEntityLoader:
             elif entity_type == "PLATFORM":
                 platforms.append(Platform(x, y, config))
             elif entity_type == "FLYING_PLATFORM":
-                platforms.append(FlyingPlatform(x, y, config))
+                platforms.append(FlyingPlatform(x, y, config, rng=rng))
             elif entity_type == "END_FLAG":
                 end_flags.append(EndFlag(x, y, config))
             elif entity_type == "ENEMY":
-                enemies.append(Enemy(x, y, config))
+                enemies.append(Enemy(x, y, config, rng=rng))
             elif entity_type == "COIN":
                 coins.append(Coin(x, y, config, allow_respawn=(level_number == 4)))
             elif entity_type == "DOUBLE_SCORE":
@@ -88,7 +91,7 @@ class LevelEntityLoader:
             elif entity_type == "INVINCIBLE_POWER":
                 power_ups.append(InvinciblePower(x, y, config))
             elif entity_type == "ENEMY_BOSS":
-                boss = EnemyBoss(x, y, config)
+                boss = EnemyBoss(x, y, config, rng=rng)
 
         return LevelEntities(
             player=player,
@@ -135,15 +138,19 @@ class PlatformContactResolver:
         was_in_air = player.is_jumping
 
         if isinstance(platform, FlyingPlatform):
+            # The spec's test was a 1 px window at the end of this tick, so a
+            # fall of more than 1 px/tick only landed if the arc happened to
+            # stop inside it: 37 of 300 platform heights were reachable from
+            # the ground. Test the whole path the player swept instead.
             dx = abs(player.x - platform.x)
-            dy = platform.y - player.y
+            rest_y = platform.y - self.config.flying_platform_half_height
             if (
                 dx < self.config.flying_platform_half_length
-                and dy <= self.config.flying_platform_half_height + 0.01
-                and dy >= (self.config.flying_platform_half_height - 1)
                 and player.get_vertical_speed() >= 0
+                and player.prev_y <= rest_y + 0.01
+                and player.y >= rest_y - 1
             ):
-                player.land_on_platform(platform.y - self.config.flying_platform_half_height)
+                player.land_on_platform(rest_y)
                 if was_in_air:
                     self._on_land(player)
                 return True, platform

@@ -32,3 +32,7 @@ save.json
 .idea/
 *.swp
 *.swo
+
+# Local playtest data (tools/playtest_report.py reads it; never commit players' runs)
+/telemetry/
+/replays/

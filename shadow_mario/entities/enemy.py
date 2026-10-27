@@ -12,12 +12,14 @@ class Enemy(MoveableEntity):
     DAMAGE_COOLDOWN = 1.5  # Seconds between damage ticks
     PATROL_RANGE_COLOR = (255, 50, 50, 40)  # Semi-transparent red
 
-    def __init__(self, x: float, y: float, config: GameConfig) -> None:
+    def __init__(self, x: float, y: float, config: GameConfig,
+                 rng: random.Random | None = None) -> None:
         super().__init__(x, y, config.enemy_image, config.enemy_speed, hitbox_scale=0.85)
+        rng = rng or random.Random()
         self.random_speed = config.enemy_random_speed
         self.max_displacement = config.enemy_max_displacement
         self.current_displacement = 0.0
-        self.direction = 1 if random.choice([True, False]) else -1
+        self.direction = 1 if rng.choice([True, False]) else -1
         self.has_inflicted_damage = False
         self.damage_cooldown_timer = 0.0
         # Store spawn position for patrol range visualization

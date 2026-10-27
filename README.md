@@ -60,6 +60,7 @@ Alternative launcher:
 - `1` / `2` / `3` / `4`: quick start level from menu
 - `Esc`: back/pause/quit depending on current scene
 - `F12`: save screenshot to `screenshots/`
+- `F9` (in a level): save this attempt's input to `replays/` (see Playtesting)
 
 ### Levels 1-3 (Single Player)
 
@@ -120,6 +121,45 @@ make lint
 make test
 make typecheck
 ```
+
+### Simulation, replays and frame rate
+
+The level runs at a fixed 60 ticks per second whatever the display frame rate
+(`shadow_mario/simulation.py`), and every random choice comes from a per-level
+seed, so a recorded input sequence always replays to the same result.
+`tests/replays/level1-4.json` are reference runs that CI plays back at 30, 60
+and 144 fps. If you change how a level plays on purpose, regenerate them and
+say why in the commit:
+
+```bash
+python tools/make_replays.py
+```
+
+### Web build
+
+```bash
+pip install pygbag==0.9.3 playwright && python -m playwright install chromium-headless-shell
+tools/build_web.sh          # build/web/ and build/web.zip, from a clean copy of the game
+python tools/web_smoke.py   # boots it in headless Chromium; fails on a Python traceback
+```
+
+CI runs both on every push and keeps `web.zip` as an artifact. Publishing to
+itch.io is the manual `Deploy web build to itch.io` workflow.
+
+### Playtesting
+
+Desktop runs log hits, deaths and level outcomes locally to
+`telemetry/events.jsonl` (nothing is sent anywhere; `SHADOW_MARIO_TELEMETRY=0`
+turns it off). After a session:
+
+```bash
+python tools/playtest_report.py             # summary + per-level heatmaps in telemetry/report/
+python tools/replay.py replays/<file>.json  # rewatch an attempt saved with F9
+```
+
+The test script and record sheet are in [docs/PLAYTEST.md](docs/PLAYTEST.md);
+[docs/FEEL_AUDIT.md](docs/FEEL_AUDIT.md) records what was measured and changed,
+and [docs/ASSETS.md](docs/ASSETS.md) where each asset came from.
 
 ## Troubleshooting
 
