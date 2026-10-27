@@ -121,7 +121,7 @@ python tools/make_replays.py
 ```bash
 pip install pygbag==0.9.3 playwright && python -m playwright install chromium-headless-shell
 tools/build_web.sh          # 从干净副本构建 build/web/ 与 build/web.zip
-python tools/web_smoke.py   # 在无头 Chromium 中启动，出现 Python 报错即失败
+python tools/web_smoke.py   # 在无头 Chromium 中启动 build/web 和发给 itch 的 zip，出现 Python 报错即失败
 ```
 
 CI 每次推送都会跑这两步并保留 `web.zip`。发布到 itch.io 需手动触发 `Deploy web build to itch.io` 工作流。

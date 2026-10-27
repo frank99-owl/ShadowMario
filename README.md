@@ -140,7 +140,7 @@ python tools/make_replays.py
 ```bash
 pip install pygbag==0.9.3 playwright && python -m playwright install chromium-headless-shell
 tools/build_web.sh          # build/web/ and build/web.zip, from a clean copy of the game
-python tools/web_smoke.py   # boots it in headless Chromium; fails on a Python traceback
+python tools/web_smoke.py   # boots build/web and the itch.io zip in headless Chromium
 ```
 
 CI runs both on every push and keeps `web.zip` as an artifact. Publishing to

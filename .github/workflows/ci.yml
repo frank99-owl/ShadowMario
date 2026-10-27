@@ -69,5 +69,5 @@ jobs:
           name: web-bundle
           path: |
             build/web.zip
-            build/web-smoke.png
+            build/web-smoke-*.png
           if-no-files-found: ignore
