@@ -1,5 +1,9 @@
 """Sound effects and music management system."""
 
+# Deferred annotations: the browser build's pygame has no `mixer` attribute until
+# the mixer is initialised, so evaluating `pygame.mixer.Sound` at import crashed it.
+from __future__ import annotations
+
 import os
 from typing import Dict, Optional
 
