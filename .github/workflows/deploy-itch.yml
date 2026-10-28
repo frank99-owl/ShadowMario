@@ -39,6 +39,11 @@ jobs:
         # Third-party action in a job that holds BUTLER_API_KEY: pinned to a
         # commit, not a tag that can be moved. Dependabot updates the pin.
         uses: remarkablegames/setup-butler@ef76b8c935f4e1196b14fd8b0d553404e668c4ba # v3.0.3
+        with:
+          # butler itself, pinned too (the action defaults to LATEST). Dependabot
+          # does not track action inputs, so bump this by hand; every version stays
+          # downloadable: https://broth.itch.zone/butler/linux-amd64/versions
+          butler-version: "15.32.0"
 
       - name: List itch.io channels
         env:
