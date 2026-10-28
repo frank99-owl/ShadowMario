@@ -7,10 +7,13 @@ running the builds; nothing is estimated unless marked.
 
 ## 1. The build visitors play
 
-The portfolio links to `frank-owl.itch.io/shadowmario`. Its HTML5 upload was
-pushed by the last successful `Deploy to itch.io` run, on commit `4e6ee61`
-(2026-04-22). No game code changed between that commit and `main`, so the
-live game matches `main`'s gameplay.
+The portfolio links to `frank-owl.itch.io/shadowmario`. Until 2026-10-27 the
+page played a bundle uploaded by hand on 2026-04-22: built locally with pygbag
+0.9.2 (its `version.txt`; the package is named after the local folder,
+`shadowmariopython.apk`), about an hour after the last successful `Deploy to
+itch.io` run, and attached to no butler channel. Which commit it was built
+from is not recorded. Since 2026-10-27 the page plays butler channel `web`
+(upload #20069902), which only the manual deploy workflow pushes to.
 
 Found while rebuilding it:
 
@@ -20,7 +23,7 @@ Found while rebuilding it:
 | The live bundle was built by hand with pygbag 0.9.2 (its `version.txt`); the deploy workflow pinned 0.9.3, which nothing had built a working bundle with. Built from `main` with 0.9.3, the game crashed at import (`module 'pygame' has no attribute 'event'`), then exited before its first frame. | The next deploy from `main` would have replaced a working game with a blank page. | `main.py` imports pygame at top level and does not `sys.exit` in the browser; `audio.py` defers annotations. |
 | The itch page needs a click before the game boots. | A visitor sees an empty grey frame until they click. | Changed in the itch.io embed settings on 2026-10-27. |
 | Saves were files, and a browser's filesystem is in memory: every score, coin total, achievement and volume setting was gone on reload. Found 2026-10-28 by winning level 1, reloading, and watching the menu's totals disappear. | Nothing a visitor did was kept between visits. | `shadow_mario/storage.py`: `localStorage` in the browser, the OS user data folder on desktop with atomic writes. `web_smoke.py` now requires a setting change to reach `localStorage` and a planted save to show after a reload. |
-| Nothing checked the web build. | The two breakages above were invisible. | CI `web` job: build, boot in headless Chromium (`tools/web_smoke.py`), keep the bundle as an artifact. Verified to fail on the broken entrypoint. |
+| Nothing checked the web build. | The packaging and boot breakages above were invisible. | CI `web` job: build, boot in headless Chromium (`tools/web_smoke.py`), keep the bundle as an artifact. Verified to fail on the broken entrypoint. |
 
 Deploying is a manual workflow (`deploy-itch.yml`, `workflow_dispatch`), and it
 refuses to push a bundle that does not boot.
@@ -124,7 +127,21 @@ assignment.
 **Assets.** See [ASSETS.md](ASSETS.md). Several images and every sound have
 no recorded source or license.
 
-## 7. How to tell if it worked
+## 7. Achievements
+
+Found on 2026-10-28 while checking saves on the live build. All three dated
+from when the achievement system was written.
+
+| Achievement | What was wrong | Fixed by |
+| --- | --- | --- |
+| Coin Collector ("Collect 50 coins in total") | The game-over screen added the level's coins to the save, then the check added them again, so a first run with 25 coins unlocked it. Seen live: 27 coins, unlocked. | The check reads the total from the save alone (`c57d0db`). Verified live with three level 1 runs: not unlocked at 48 coins in total, unlocked at 73. |
+| Speed Runner ("Complete Level 1 in under 60 seconds") | Defined but never checked, and the check never received the level's time: it could not be earned. | Checked on a level 1 win under 60 s (`3654cd2`). Verified live: unlocked after a 13.2 s run. |
+| Untouchable ("Complete a level without taking damage") | Compared health against 1.0, but the race counts health from 100, so any race win counted, even at 50/100. | Levels report their starting health (`LevelResult.max_health`) and the check compares against it (`3654cd2`). Verified live: player 1 won the race at 74% health, not unlocked. |
+
+`tests/test_achievements.py` covers all three; its game-over scene tests fail
+on the code from before the fixes.
+
+## 8. How to tell if it worked
 
 None of the above proves the game is more fun. What would:
 
