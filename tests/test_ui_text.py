@@ -14,6 +14,7 @@ from pathlib import Path
 import pygame
 import pytest
 
+from shadow_mario import __version__
 from shadow_mario.scene_payloads import GameOverPayload
 
 FONT_PATH = Path(__file__).resolve().parent.parent / "res" / "FSO8BITR.TTF"
@@ -108,6 +109,7 @@ def test_every_scene_draws_only_characters_the_font_has(missing, drawn_text):
         if any(c in missing for c in text)
     }
     assert len(drawn_text) > 50, "the scenes drew almost nothing; the recording is broken"
+    assert f"v{__version__}" in drawn_text, "the menu should show the package version"
     assert not bad, "text the font cannot draw (▯ marks the box):\n" + "\n".join(
         f"  {where}: {text}" for text, where in sorted(bad.items(), key=lambda kv: kv[1])
     )

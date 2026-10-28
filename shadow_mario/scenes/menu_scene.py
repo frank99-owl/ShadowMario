@@ -6,6 +6,7 @@ from typing import List
 
 import pygame
 
+from shadow_mario import __version__
 from shadow_mario.scene_payloads import LevelStartPayload
 from .scene import Scene
 
@@ -183,7 +184,7 @@ class MenuScene(Scene):
             screen.blit(coin_surf, (20, self.config.window_height - 55))
 
         # Version info
-        version_surf = self.config.instruction_font.render("v1.1.0", True, self.rc.color("text_hint"))
+        version_surf = self.config.instruction_font.render(f"v{__version__}", True, self.rc.color("text_hint"))
         screen.blit(version_surf, (self.config.window_width - version_surf.get_width() - 20, self.config.window_height - 30))
         hint_text = "PRESS 1-4 TO QUICK START LEVEL"
         hint_surf = self.config.instruction_font.render(hint_text, True, self.rc.color("text_hint"))
