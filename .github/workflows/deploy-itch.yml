@@ -38,7 +38,7 @@ jobs:
       - name: Setup butler
         # Third-party action in a job that holds BUTLER_API_KEY: pinned to a
         # commit, not a tag that can be moved. Dependabot updates the pin.
-        uses: remarkablegames/setup-butler@ef76b8c935f4e1196b14fd8b0d553404e668c4ba # v3.0.3
+        uses: remarkablegames/setup-butler@64c286ef04cbc1e3ef65914939d34187ae29c422 # v3.0.4
         with:
           # butler itself, pinned too (the action defaults to LATEST). Dependabot
           # does not track action inputs, so bump this by hand; every version stays
