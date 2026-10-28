@@ -24,7 +24,7 @@ Shadow Mario 是一个基于 Python + Pygame 的 2D 平台游戏项目。
 - 打击反馈：命中停顿、挤压拉伸、受伤闪红
 - 第 1 关在关卡内教操作，提示会根据玩家的动作出现和消失
 - 任何帧率下都固定每秒 60 tick；每次尝试都能保存并精确回放
-- 运行时配置支持（`res/runtime_config.json`）
+- 运行时配置（`res/runtime_config.json`）：界面颜色与尺寸
 - 存档支持关卡解锁、最高分、最佳时间、金币、成就与音量设置；桌面版存在系统的用户数据目录，浏览器版存在 `localStorage`
 
 ## 玩法规则
@@ -38,7 +38,7 @@ Shadow Mario 是一个基于 Python + Pygame 的 2D 平台游戏项目。
 
 ## 环境要求
 
-- Python 3.10+
+- Python 3.11+
 - pip
 - 可用的桌面图形环境（Pygame/SDL）
 
@@ -111,7 +111,7 @@ ShadowMarioPython/
 ├── docs/                      # FEEL_AUDIT、PLAYTEST、ASSETS、截图
 ├── tests/                     # 含 tests/replays/ 参考回放
 └── .github/workflows/
-    ├── ci.yml                 # 3.10/3.12 检查，web 构建与浏览器启动
+    ├── ci.yml                 # 3.11/3.13 检查，web 构建与浏览器启动
     └── deploy-itch.yml        # 手动部署到 itch.io
 ```
 

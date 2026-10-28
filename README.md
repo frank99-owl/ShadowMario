@@ -25,7 +25,7 @@ The project includes four playable levels, a scene-based UI flow, audio/save sys
 - Level 1 teaches the controls in-level, with hints that react to what the player does
 - Runs at a fixed 60 ticks per second at any frame rate; every attempt can be saved and replayed exactly
 - Scene-based architecture: menu, loading, gameplay, pause, settings, game-over
-- Runtime configuration (`res/runtime_config.json`) for colors/UI/hitbox scaling
+- Runtime configuration (`res/runtime_config.json`) for UI colors and sizes
 - Save system for unlock state, highscores, best times, coins, achievements, and audio settings, kept in the user's data folder on desktop and in `localStorage` in the browser
 
 ## Gameplay Rules
@@ -39,7 +39,7 @@ The project includes four playable levels, a scene-based UI flow, audio/save sys
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.11+
 - pip
 - A desktop environment (or SDL-compatible runtime for Pygame)
 
@@ -117,7 +117,7 @@ ShadowMarioPython/
 ├── docs/                      # FEEL_AUDIT, PLAYTEST, ASSETS, screenshots
 ├── tests/                     # incl. tests/replays/ reference runs
 └── .github/workflows/
-    ├── ci.yml                 # Checks on 3.10/3.12, web build + browser boot
+    ├── ci.yml                 # Checks on 3.11/3.13, web build + browser boot
     └── deploy-itch.yml        # Manual deploy to itch.io
 ```
 
@@ -145,7 +145,7 @@ Individual commands:
 ```bash
 make lint
 make test
-make typecheck
+make compile
 ```
 
 ### Simulation, replays and frame rate
