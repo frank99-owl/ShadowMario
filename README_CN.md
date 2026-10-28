@@ -25,7 +25,7 @@ Shadow Mario 是一个基于 Python + Pygame 的 2D 平台游戏项目。
 - 第 1 关在关卡内教操作，提示会根据玩家的动作出现和消失
 - 任何帧率下都固定每秒 60 tick；每次尝试都能保存并精确回放
 - 运行时配置支持（`res/runtime_config.json`）
-- 存档支持关卡解锁、最高分、最佳时间与音量设置
+- 存档支持关卡解锁、最高分、最佳时间、金币、成就与音量设置；桌面版存在系统的用户数据目录，浏览器版存在 `localStorage`
 
 ## 玩法规则
 
@@ -95,6 +95,7 @@ ShadowMarioPython/
 │   ├── scene_payloads.py      # 场景跳转数据模型
 │   ├── level.py               # 关卡主编排
 │   ├── level_components.py    # 关卡协作组件
+│   ├── storage.py             # 存档位置：用户数据目录或 localStorage
 │   ├── simulation.py          # 固定步长时钟、输入录制与回放
 │   ├── input.py               # 可录制的逐 tick 按键状态
 │   ├── telemetry.py           # 本地试玩事件日志
@@ -160,7 +161,8 @@ python tools/replay.py replays/<file>.json  # 重看用 F9 保存的尝试
 
 - 无法初始化图形窗口：确认本机图形环境可用。
 - 没有声音：检查系统音频设备、游戏内静音和音量配置。
-- 存档异常：删除 `save.json` 后重启。
+- 存档位置：macOS `~/Library/Application Support/ShadowMario/save.json`，Windows `%APPDATA%\ShadowMario\save.json`，Linux `~/.local/share/shadow-mario/save.json`；设置 `SHADOW_MARIO_DATA_DIR` 可改到别的目录。浏览器版在 `localStorage`（键名 `shadowmario/save.json`）。2026 年 10 月之前放在项目目录里的 `save.json` 会在首次运行时复制过去，原文件保留。
+- 存档损坏：游戏会把读不了的存档改名为 `save.json.corrupt` 后从头开始，不会覆盖它；想重置就删掉存档。
 
 ## 其他文档
 

@@ -1,8 +1,46 @@
-"""Save system, manages player progress and settings."""
+"""Save system, manages player progress and settings.
 
+Where the save lives is `storage.default_store()`'s decision: a file in the
+user's data folder on desktop, window.localStorage in the browser.
+"""
+
+from __future__ import annotations
+
+import copy
 import json
-import os
-from typing import Optional, Dict, Any
+import sys
+from pathlib import Path
+from typing import Any
+
+from .storage import LEGACY_SAVE_PATH, Store, default_store, is_browser
+
+SAVE_NAME = "save.json"
+
+_DEFAULT_DATA: dict[str, Any] = {
+    "version": 1,
+    "high_scores": {"1": 0, "2": 0, "3": 0, "4": 0},  # Per level high scores
+    "best_times": {"1": 0, "2": 0, "3": 0, "4": 0},  # Seconds per level, 0 = no record
+    "unlocked_levels": [True, True, True, True],  # Level unlock status
+    "total_coins": 0,
+    "audio_settings": {
+        "master_volume": 1.0,
+        "bgm_volume": 0.7,
+        "sfx_volume": 0.8,
+        "muted": False,
+    },
+    "key_bindings": {
+        "left": "K_LEFT",
+        "right": "K_RIGHT",
+        "jump": "K_UP",
+        "shoot": "K_s",
+        "pause": "K_ESCAPE",
+    },
+    "achievements": {},
+}
+
+
+def default_data() -> dict[str, Any]:
+    return copy.deepcopy(_DEFAULT_DATA)
 
 
 class SaveManager:
@@ -16,67 +54,37 @@ class SaveManager:
     - Key bindings
     """
 
-    _instance: Optional["SaveManager"] = None
+    def __init__(self, store: Store, legacy_path: Path | None = None) -> None:
+        self.store = store
+        self.data: dict[str, Any] = default_data()
+        self._load(legacy_path)
 
-    def __new__(cls) -> "SaveManager":
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
-
-    def __init__(self) -> None:
-        if self._initialized:
-            return
-        self._initialized = True
-
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.save_path = os.path.join(base_dir, "save.json")
-
-        # Default data
-        self.data: Dict[str, Any] = {
-            "version": 1,
-            "high_scores": {  # Per level high scores
-                "1": 0,
-                "2": 0,
-                "3": 0,
-                "4": 0,
-            },
-            "best_times": {  # Per level best time (seconds), 0 = no record
-                "1": 0,
-                "2": 0,
-                "3": 0,
-                "4": 0,
-            },
-            "unlocked_levels": [True, True, True, True],  # Level unlock status
-            "total_coins": 0,
-            "audio_settings": {
-                "master_volume": 1.0,
-                "bgm_volume": 0.7,
-                "sfx_volume": 0.8,
-                "muted": False,
-            },
-            "key_bindings": {
-                "left": "K_LEFT",
-                "right": "K_RIGHT",
-                "jump": "K_UP",
-                "shoot": "K_s",
-                "pause": "K_ESCAPE",
-            },
-            "achievements": {},  # Achievement system reserved
-        }
-
-        self._load()
-
-    def _load(self) -> None:
-        """Load save from file."""
-        if os.path.exists(self.save_path):
+    def _load(self, legacy_path: Path | None) -> None:
+        """Load the save; adopt a pre-October-2026 save.json from beside the code once."""
+        text = self.store.read(SAVE_NAME)
+        migrating = False
+        if text is None and legacy_path is not None:
             try:
-                with open(self.save_path, "r", encoding="utf-8") as f:
-                    loaded = json.load(f)
-                    # Merge loaded data (keep defaults as fallback)
-                    self._merge_data(loaded)
-            except (json.JSONDecodeError, IOError):
-                pass
+                text = legacy_path.read_text(encoding="utf-8")
+                migrating = True
+            except (OSError, UnicodeDecodeError):
+                text = None
+        if text is None:
+            return
+        try:
+            loaded = json.loads(text)
+            if not isinstance(loaded, dict):
+                raise ValueError("save is not a JSON object")
+            self._merge_data(loaded)
+        except (ValueError, TypeError, AttributeError):
+            # Start from defaults, but move the unreadable save aside first: the
+            # next save() would otherwise overwrite the only copy of it.
+            self.data = default_data()
+            if not migrating:
+                self.store.quarantine(SAVE_NAME)
+            return
+        if migrating:
+            self.save()
 
     def _merge_data(self, loaded: dict) -> None:
         """Merge loaded data into current data structure."""
@@ -93,12 +101,15 @@ class SaveManager:
             self.data["unlocked_levels"].append(True)
 
     def save(self) -> None:
-        """Save current data to file."""
+        """Write the save. A failure is reported and the previous save stays intact."""
+        # ASCII-only JSON: pygbag's bridge stores a string's UTF-8 bytes as
+        # Latin-1 characters in localStorage, so non-ASCII text would not come
+        # back as written. \u escapes survive.
+        text = json.dumps(self.data, indent=2, ensure_ascii=True)
         try:
-            with open(self.save_path, "w", encoding="utf-8") as f:
-                json.dump(self.data, f, indent=2, ensure_ascii=False)
-        except IOError:
-            pass
+            self.store.write(SAVE_NAME, text)
+        except OSError as exc:
+            print(f"[save] could not write {SAVE_NAME}: {exc}", file=sys.stderr)
 
     # ---- High scores ----
 
@@ -203,30 +214,17 @@ class SaveManager:
 
     def reset(self) -> None:
         """Reset all save data."""
-        self.data = {
-            "version": 1,
-            "high_scores": {"1": 0, "2": 0, "3": 0, "4": 0},
-            "best_times": {"1": 0, "2": 0, "3": 0, "4": 0},
-            "unlocked_levels": [True, True, True, True],
-            "total_coins": 0,
-            "audio_settings": {
-                "master_volume": 1.0,
-                "bgm_volume": 0.7,
-                "sfx_volume": 0.8,
-                "muted": False,
-            },
-            "key_bindings": {
-                "left": "K_LEFT",
-                "right": "K_RIGHT",
-                "jump": "K_UP",
-                "shoot": "K_s",
-                "pause": "K_ESCAPE",
-            },
-            "achievements": {},
-        }
+        self.data = default_data()
         self.save()
 
 
+_instance: SaveManager | None = None
+
+
 def get_save_manager() -> SaveManager:
-    """Get SaveManager singleton."""
-    return SaveManager()
+    """The process-wide SaveManager, created on first use."""
+    global _instance
+    if _instance is None:
+        legacy = None if is_browser() else LEGACY_SAVE_PATH
+        _instance = SaveManager(default_store(), legacy_path=legacy)
+    return _instance

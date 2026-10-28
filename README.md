@@ -26,7 +26,7 @@ The project includes four playable levels, a scene-based UI flow, audio/save sys
 - Runs at a fixed 60 ticks per second at any frame rate; every attempt can be saved and replayed exactly
 - Scene-based architecture: menu, loading, gameplay, pause, settings, game-over
 - Runtime configuration (`res/runtime_config.json`) for colors/UI/hitbox scaling
-- Save system for unlock state, highscores, best times, and audio settings
+- Save system for unlock state, highscores, best times, coins, achievements, and audio settings, kept in the user's data folder on desktop and in `localStorage` in the browser
 
 ## Gameplay Rules
 
@@ -101,6 +101,7 @@ ShadowMarioPython/
 │   ├── scene_payloads.py      # Typed transition payloads
 │   ├── level.py               # Gameplay façade
 │   ├── level_components.py    # Level collaborators
+│   ├── storage.py             # Where saves live: user data folder or localStorage
 │   ├── simulation.py          # Fixed-timestep clock, input recording and replay
 │   ├── input.py               # Recordable per-tick key state
 │   ├── telemetry.py           # Local playtest event log
@@ -186,8 +187,11 @@ and [docs/ASSETS.md](docs/ASSETS.md) where each asset came from.
   - Ensure a valid desktop/SDL environment is available.
 - No sound:
   - Check OS mixer/device settings and `Settings` scene mute/volume values.
-- Corrupted local save:
-  - Remove `save.json` and restart to regenerate defaults.
+- Where is my save?
+  - macOS `~/Library/Application Support/ShadowMario/save.json`, Windows `%APPDATA%\ShadowMario\save.json`, Linux `~/.local/share/shadow-mario/save.json`; set `SHADOW_MARIO_DATA_DIR` to use another folder. In the browser it is in `localStorage` (key `shadowmario/save.json`).
+  - A `save.json` from before October 2026 (in the project folder) is copied there on first run and left in place.
+- Corrupted save:
+  - The game moves an unreadable save aside as `save.json.corrupt` and starts fresh; nothing is overwritten. Delete the save to reset.
 
 ## Documentation
 

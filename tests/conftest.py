@@ -2,6 +2,7 @@
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 import pygame
@@ -12,6 +13,8 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 os.environ.setdefault("SHADOW_MARIO_TELEMETRY", "0")
+# Saves go to a throwaway folder, never the developer's real save.
+os.environ.setdefault("SHADOW_MARIO_DATA_DIR", tempfile.mkdtemp(prefix="shadowmario-test-"))
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:

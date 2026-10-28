@@ -16,9 +16,10 @@ Found while rebuilding it:
 
 | Finding | Effect | Fixed by |
 | --- | --- | --- |
-| The bundle was packaged from the repo root, so it shipped a developer's `save.json` (all four levels unlocked, 346 coins, five achievements) plus the READMEs and Makefile. | Every visitor started with someone else's progress; level unlocking never happened for a new player. | `tools/build_web.sh` stages only `main.py`, `shadow_mario/` and `res/`. |
+| The bundle was packaged from the repo root, so it shipped a developer's `save.json` (all four levels unlocked, 346 coins, five achievements) plus the READMEs and Makefile. | Every visitor started with someone else's scores, coins and achievements. (All four levels are unlocked by default anyway.) | `tools/build_web.sh` stages only `main.py`, `shadow_mario/` and `res/`. |
 | The same pygbag pin (0.9.3) now fetches a newer browser runtime. Rebuilt from `main`, the game crashed at import (`module 'pygame' has no attribute 'event'`), then exited before its first frame. | The next deploy from `main` would have replaced a working game with a blank page. | `main.py` imports pygame at top level and does not `sys.exit` in the browser; `audio.py` defers annotations. |
-| The itch page needs a click before the game boots. | A visitor sees an empty grey frame until they click. | Not fixed; an itch embed setting, worth checking on the game's edit page. |
+| The itch page needs a click before the game boots. | A visitor sees an empty grey frame until they click. | Changed in the itch.io embed settings on 2026-10-27. |
+| Saves were files, and a browser's filesystem is in memory: every score, coin total, achievement and volume setting was gone on reload. Found 2026-10-28 by winning level 1, reloading, and watching the menu's totals disappear. | Nothing a visitor did was kept between visits. | `shadow_mario/storage.py`: `localStorage` in the browser, the OS user data folder on desktop with atomic writes. `web_smoke.py` now requires a setting change to reach `localStorage` and a planted save to show after a reload. |
 | Nothing checked the web build. | The two breakages above were invisible. | CI `web` job: build, boot in headless Chromium (`tools/web_smoke.py`), keep the bundle as an artifact. Verified to fail on the broken entrypoint. |
 
 Deploying is a manual workflow (`deploy-itch.yml`, `workflow_dispatch`), and it

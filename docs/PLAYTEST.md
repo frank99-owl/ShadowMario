@@ -9,7 +9,7 @@ better, measured the same way before and after.
   serve `build/web`) or the desktop game (`python3 main.py`).
 - Desktop runs write telemetry to `telemetry/events.jsonl`. Note the time
   each player starts, so sessions can be told apart in the report.
-- Delete `save.json` before each player so everyone starts locked at level 1.
+- Give each player a fresh save: `SHADOW_MARIO_DATA_DIR="$(mktemp -d)" python3 main.py` on desktop, a new private window in the browser.
 - Record the screen and the player's voice if they agree. Ask first.
 
 ## Script
