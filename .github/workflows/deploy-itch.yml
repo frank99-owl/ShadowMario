@@ -38,7 +38,7 @@ jobs:
       - name: Setup butler
         # Third-party action in a job that holds BUTLER_API_KEY: pinned to a
         # commit, not a tag that can be moved. Dependabot updates the pin.
-        uses: remarkablegames/setup-butler@0ae0d25d726294e9130e5f2bc979fdb0fc5f506c # v2.0.7
+        uses: remarkablegames/setup-butler@ef76b8c935f4e1196b14fd8b0d553404e668c4ba # v3.0.3
 
       - name: List itch.io channels
         env:
