@@ -17,6 +17,9 @@ class Achievement:
         self.icon = icon
 
 
+SPEED_RUN_SECONDS = 60.0
+
+
 class AchievementManager:
     """Manages game achievements."""
 
@@ -58,12 +61,17 @@ class AchievementManager:
         """Get all unlocked achievements."""
         return [a for a in self.achievements.values() if self.is_unlocked(a.id)]
 
-    def check_level_complete(self, level: int, score: int, health: float) -> list[str]:
+    def check_level_complete(self, level: int, score: int, health: float, *,
+                             max_health: float, elapsed_time: float) -> list[str]:
         """Check level completion related achievements, returns list of newly unlocked achievement IDs.
 
         Call it after the level's coins are in the save: the coin total is read
         from the save alone. Adding the level's coins again here counted them
         twice, so "Collect 50 coins in total" unlocked after 25.
+
+        `max_health` is the level's starting health: 1.0 in levels 1-3, 100 in
+        the race. Comparing against 1.0 everywhere made any race win count as
+        "without taking damage".
         """
         unlocked = []
 
@@ -77,8 +85,13 @@ class AchievementManager:
             if self.unlock("boss_slayer"):
                 unlocked.append("boss_slayer")
 
-        # No damage clear
-        if health >= 1.0:
+        # Was defined but never checked, so it could not be earned.
+        if level == 1 and 0 < elapsed_time < SPEED_RUN_SECONDS:
+            if self.unlock("speed_run"):
+                unlocked.append("speed_run")
+
+        # No damage clear: still at this level's full health
+        if health >= max_health:
             if self.unlock("no_damage"):
                 unlocked.append("no_damage")
 

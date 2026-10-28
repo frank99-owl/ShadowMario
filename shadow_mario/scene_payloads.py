@@ -70,6 +70,7 @@ class GameOverPayload:
     p1_score: int = 0
     p2_score: int = 0
     race_winner: int | None = None
+    max_health: float = 1.0  # the level's starting health (100 in the race)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -93,4 +94,5 @@ class GameOverPayload:
             p1_score=_to_int(data.get("p1_score", 0), 0),
             p2_score=_to_int(data.get("p2_score", 0), 0),
             race_winner=winner_int,
+            max_health=_to_float(data.get("max_health", 1.0), 1.0) or 1.0,
         )

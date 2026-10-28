@@ -85,6 +85,7 @@ class GameOverScene(Scene):
         self._won = payload.won
         self._score = payload.score
         self._health = payload.health
+        self._max_health = payload.max_health
         self._level = payload.level
         self._elapsed_time = payload.elapsed_time
         self._total_coins = payload.total_coins
@@ -108,7 +109,10 @@ class GameOverScene(Scene):
             # Save coins first: the achievement check reads the total from the save.
             save.add_coins(self._collected_coins)
             am = get_achievement_manager()
-            self._new_achievements = am.check_level_complete(self._level, self._score, self._health)
+            self._new_achievements = am.check_level_complete(
+                self._level, self._score, self._health,
+                max_health=self._max_health, elapsed_time=self._elapsed_time,
+            )
             audio.stop_bgm(fade_ms=200)
             audio.play_sfx("win")
         else:

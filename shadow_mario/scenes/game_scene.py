@@ -403,6 +403,7 @@ class GameScene(Scene):
                 p1_score=result.p1_score,
                 p2_score=result.p2_score,
                 race_winner=result.race_winner,
+                max_health=result.max_health,
             ))
 
         # Check loss
@@ -420,6 +421,7 @@ class GameScene(Scene):
                 p1_score=result.p1_score,
                 p2_score=result.p2_score,
                 race_winner=result.race_winner,
+                max_health=result.max_health,
             ))
 
     def _update_speed_lines(self, dt: float) -> None:

@@ -53,6 +53,7 @@ class LevelResult:
     p1_score: int
     p2_score: int
     race_winner: int | None
+    max_health: float  # health at the start of the level: "no damage" means still this
 
 
 class Level:
@@ -62,6 +63,8 @@ class Level:
     UNIFIED_HEALTH_BAR_COLOR = (100, 240, 120)
     UNIFIED_INV_BAR_COLOR = (90, 180, 255)
     PLAYER_FIRE_COOLDOWN_FRAMES = 8
+    # The race (level 4) counts health in points; levels 1-3 use config.player_health (1.0).
+    RACE_START_HEALTH = 100.0
     # Hit-stop: ticks the simulation holds still so an impact reads as an impact.
     HITSTOP_PLAYER_HURT = 5
     HITSTOP_BOSS_HIT = 4
@@ -182,11 +185,12 @@ class Level:
             self.boss = None
 
     def _init_level_specific_state(self):
+        self.start_health = self.RACE_START_HEALTH if self.camera_mode else self.config.player_health
         if not self.camera_mode:
             return
         for p in (self.player, self.player2):
             if p is not None:
-                p.health = 100.0
+                p.health = self.start_health
 
     def update(self, keys, s_just_pressed, screen=None):
         frame_dt = 1.0 / 60.0
@@ -268,6 +272,7 @@ class Level:
             p1_score=snapshot.p1_score,
             p2_score=snapshot.p2_score,
             race_winner=snapshot.race_winner,
+            max_health=self.start_health,
         )
 
     def force_race_winner(self, winner: int) -> None:
@@ -630,7 +635,7 @@ class Level:
             56,
             health_color=self.UNIFIED_HEALTH_BAR_COLOR,
             inv_color=self.UNIFIED_INV_BAR_COLOR,
-            health_max=100.0,
+            health_max=self.RACE_START_HEALTH,
         )
         self._draw_player_bars(
             screen,
@@ -639,7 +644,7 @@ class Level:
             56,
             health_color=self.UNIFIED_HEALTH_BAR_COLOR,
             inv_color=self.UNIFIED_INV_BAR_COLOR,
-            health_max=100.0,
+            health_max=self.RACE_START_HEALTH,
         )
 
         # Center: time
