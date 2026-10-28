@@ -1,10 +1,23 @@
 version: 2
 updates:
+  # Versions are pinned exactly, so each Dependabot PR is a real upgrade that CI
+  # tests before it lands. Test and build tools come as one monthly PR; pygame
+  # and pygbag change what players run, so each gets its own.
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "monthly"
+    groups:
+      dev-tools:
+        patterns:
+          - "pytest"
+          - "ruff"
+          - "playwright"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "monthly"
+    groups:
+      actions:
+        patterns:
+          - "*"

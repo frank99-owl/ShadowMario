@@ -26,18 +26,19 @@ jobs:
       contents: read
     env:
       ITCH_GAME: ${{ vars.ITCH_GAME || 'frank-owl/shadowmario' }}
-      PYGBAG_VERSION: "0.9.3"
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Setup butler
-        uses: remarkablegames/setup-butler@v2
+        # Third-party action in a job that holds BUTLER_API_KEY: pinned to a
+        # commit, not a tag that can be moved. Dependabot updates the pin.
+        uses: remarkablegames/setup-butler@0ae0d25d726294e9130e5f2bc979fdb0fc5f506c # v2.0.7
 
       - name: List itch.io channels
         env:
@@ -50,8 +51,7 @@ jobs:
         if: ${{ !inputs.status_only }}
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install "pygbag==${PYGBAG_VERSION}" playwright
+          pip install -r requirements.txt -r requirements-web.txt
           python -m playwright install --with-deps chromium-headless-shell
 
       - name: Build web bundle

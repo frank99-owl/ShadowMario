@@ -1,0 +1,6 @@
+# Browser build (tools/build_web.sh) and its smoke test (tools/web_smoke.py),
+# for the CI web job and the itch.io deploy. pygbag also decides which browser
+# runtime visitors download from the pygame-web CDN, so a pygbag bump changes
+# what players run and has to pass the smoke test before a deploy.
+pygbag==0.9.3
+playwright==1.64.1

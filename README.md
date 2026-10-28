@@ -88,6 +88,7 @@ ShadowMarioPython/
 ├── run.sh                     # Convenience launcher
 ├── requirements.txt
 ├── requirements-dev.txt       # Dev tooling (ruff, pytest)
+├── requirements-web.txt       # Browser build + smoke test (pygbag, playwright)
 ├── Makefile                   # Unified local checks
 ├── res/                       # Assets and runtime data
 │   ├── app.properties
@@ -128,6 +129,11 @@ Install development dependencies:
 pip install -r requirements-dev.txt
 ```
 
+Every dependency is pinned to an exact version in `requirements*.txt`, so CI
+and a fresh checkout install the same thing. Dependabot opens a monthly PR to
+bump them, which CI tests before it can land, and CI also runs every Monday on
+`main` so a breakage shows up even in a month with no pushes.
+
 Run all checks:
 
 ```bash
@@ -158,7 +164,7 @@ python tools/make_replays.py
 ### Web build
 
 ```bash
-pip install pygbag==0.9.3 playwright && python -m playwright install chromium-headless-shell
+pip install -r requirements-web.txt && python -m playwright install chromium-headless-shell
 tools/build_web.sh          # build/web/ and build/web.zip, from a clean copy of the game
 python tools/web_smoke.py   # boots build/web and the itch.io zip in headless Chromium
 ```

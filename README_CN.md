@@ -87,6 +87,7 @@ ShadowMarioPython/
 ├── run.sh
 ├── requirements.txt
 ├── requirements-dev.txt
+├── requirements-web.txt       # 浏览器版构建与冒烟测试（pygbag、playwright）
 ├── Makefile
 ├── res/                       # 资源与配置
 ├── shadow_mario/
@@ -122,6 +123,8 @@ ShadowMarioPython/
 pip install -r requirements-dev.txt
 ```
 
+所有依赖都在 `requirements*.txt` 里锁定到确切版本，CI 和新检出的代码装到的是同一套。Dependabot 每月提 PR 升级，CI 测过才能合并；CI 还会每周一在 `main` 上定时跑一次，即使一个月没人推代码，出了问题也能看到。
+
 执行统一检查：
 
 ```bash
@@ -139,7 +142,7 @@ python tools/make_replays.py
 ### Web 构建
 
 ```bash
-pip install pygbag==0.9.3 playwright && python -m playwright install chromium-headless-shell
+pip install -r requirements-web.txt && python -m playwright install chromium-headless-shell
 tools/build_web.sh          # 从干净副本构建 build/web/ 与 build/web.zip
 python tools/web_smoke.py   # 在无头 Chromium 中启动 build/web 和发给 itch 的 zip，出现 Python 报错即失败
 ```
