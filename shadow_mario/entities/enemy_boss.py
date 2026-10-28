@@ -9,7 +9,7 @@ class EnemyBoss(MoveableEntity):
 
     def __init__(self, x: float, y: float, config: GameConfig,
                  rng: random.Random | None = None) -> None:
-        super().__init__(x, y, config.boss_image, config.boss_speed, hitbox_scale=0.85)
+        super().__init__(x, y, config.boss_image, config.boss_speed)
         self.health = config.boss_health
         self.frame_counter = 0
         self._rand = rng or random.Random()

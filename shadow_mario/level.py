@@ -37,8 +37,6 @@ class LevelSnapshot:
     collected_coins: int
     shake_intensity: float
     combo_count: int
-    checkpoint_count: int
-    current_checkpoint_idx: int
     has_player2: bool
 
 
@@ -113,8 +111,6 @@ class Level:
         self.combo_count = 0
         self._combo_timer = 0.0
         self._player_fire_cooldown = 0
-        self.checkpoints = []
-        self.current_checkpoint_idx = -1
         self.best_time = None
         self._boss_death_fx_done = False
 
@@ -256,8 +252,6 @@ class Level:
             collected_coins=self.collected_coins_count,
             shake_intensity=self.shake_intensity,
             combo_count=self.combo_count,
-            checkpoint_count=len(self.checkpoints),
-            current_checkpoint_idx=self.current_checkpoint_idx,
             has_player2=self.player2 is not None,
         )
 
@@ -651,7 +645,7 @@ class Level:
         # Center: time
         minutes = int(self.elapsed_time) // 60
         seconds = int(self.elapsed_time) % 60
-        time_text = f"TIME {minutes:02d}:{seconds:02d}"
+        time_text = f"TIME {minutes:02d} {seconds:02d}"
         time_surf = font.render(time_text, True, (255, 255, 255))
         time_x = self.config.window_width // 2 - time_surf.get_width() // 2
         screen.blit(time_surf, (time_x, 20))

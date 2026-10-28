@@ -14,7 +14,7 @@ class Coin(MoveableEntity):
     RESPAWN_DELAY = 3.0
 
     def __init__(self, x: float, y: float, config: GameConfig, allow_respawn: bool = True) -> None:
-        super().__init__(x, y, config.coin_image, config.coin_speed, hitbox_scale=0.7)
+        super().__init__(x, y, config.coin_image, config.coin_speed)
         self._allow_respawn = allow_respawn
         self._is_collected = False
         self._original_x = x

@@ -7,7 +7,7 @@ class Fireball(MoveableEntity):
 
     def __init__(self, x: float, y: float, config: GameConfig,
                  direction: int, shot_by_player: bool) -> None:
-        super().__init__(x, y, config.fireball_image, config.platform_speed, hitbox_scale=0.6)
+        super().__init__(x, y, config.fireball_image, config.platform_speed)
         self.fly_speed = config.fireball_speed
         self.direction = direction  # 1 for right, -1 for left
         self.shot_by_player = shot_by_player

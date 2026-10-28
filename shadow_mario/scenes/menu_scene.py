@@ -171,14 +171,14 @@ class MenuScene(Scene):
         # High score display
         total_high = sum(self._high_scores) if self._high_scores else 0
         if total_high > 0:
-            hs_text = f"BEST: {total_high}"
+            hs_text = f"BEST {total_high}"
             hs_surf = self.config.instruction_font.render(hs_text, True, (255, 215, 0))
             screen.blit(hs_surf, (20, self.config.window_height - 30))
 
         # Total coins from save
         total_coins = self.save.get_total_coins()
         if total_coins > 0:
-            coin_text = f"COINS: {total_coins}"
+            coin_text = f"COINS {total_coins}"
             coin_surf = self.config.instruction_font.render(coin_text, True, (255, 215, 0))
             screen.blit(coin_surf, (20, self.config.window_height - 55))
 

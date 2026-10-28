@@ -6,9 +6,8 @@ class PowerUp(MoveableEntity):
 
     FLY_SPEED = -10.0
 
-    def __init__(self, x: float, y: float, image_path: str,
-                 scroll_speed: float, hitbox_scale: float = 0.7) -> None:
-        super().__init__(x, y, image_path, scroll_speed, hitbox_scale)
+    def __init__(self, x: float, y: float, image_path: str, scroll_speed: float) -> None:
+        super().__init__(x, y, image_path, scroll_speed)
         self._is_collected = False
         self.vertical_speed = 0.0
 

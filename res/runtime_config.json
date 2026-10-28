@@ -39,27 +39,5 @@
     "title_float_speed": 2.0,
     "glow_alpha": 40,
     "glow_padding": 4
-  },
-  "player": {
-    "hitbox_scale": 0.75,
-    "invincible_flash_interval": 10
-  },
-  "enemy": {
-    "hitbox_scale": 0.85
-  },
-  "coin": {
-    "hitbox_scale": 0.7
-  },
-  "powerup": {
-    "hitbox_scale": 0.7
-  },
-  "fireball": {
-    "hitbox_scale": 0.6
-  },
-  "endflag": {
-    "hitbox_scale": 0.6
-  },
-  "platform": {
-    "hitbox_scale": 1.0
   }
 }

@@ -12,7 +12,6 @@ from shadow_mario.simulation import FixedStepClock, LevelRunner
 from shadow_mario.telemetry import get_telemetry
 from shadow_mario.tutorial import TutorialHint, TutorialManager
 from shadow_mario.transition import FadeTransition
-from shadow_mario.entities.player import Player
 from .scene import Scene
 
 
@@ -58,9 +57,6 @@ class GameScene(Scene):
 
         # Speed lines effect
         self._speed_lines: list[dict] = []
-
-        # Respawn flash effect
-        self._respawn_flash = 0.0
 
         # Screenshot notification
         self._screenshot_notify_timer = 0.0
@@ -147,7 +143,7 @@ class GameScene(Scene):
             # Place hints near bottom of screen, below platforms
             bottom_y = self.config.window_height - 60
             self._tutorial.add_hint(TutorialHint(
-                "PLAYER 1: WASD to move. PLAYER 2: ARROWS to move.", cx, bottom_y, font,
+                "PLAYER 1 - WASD TO MOVE. PLAYER 2 - ARROWS TO MOVE.", cx, bottom_y, font,
                 fade_in_duration=0.5, stay_duration=4.0, fade_out_duration=0.5
             ))
             self._tutorial.add_hint(TutorialHint(
@@ -228,7 +224,6 @@ class GameScene(Scene):
         self._damage_flash = 0.0
         self._transition_pending = None
         self._speed_lines = []
-        self._respawn_flash = 0.0
         self._screenshot_notify_timer = 0.0
         self._race_camera_state = None
         self.context.audio.play_bgm("bgm_level")
@@ -386,18 +381,6 @@ class GameScene(Scene):
             self._seen_player_hits = self._level.player_hits
             self._damage_flash = 0.5
 
-        # Check for respawn to trigger flash effect
-        if (self._level.player and self._level.player.respawn_effect_timer > 0
-                and self._respawn_flash <= 0):
-            self._respawn_flash = 0.6
-            self.context.audio.play_sfx("powerup")
-
-        # Update respawn flash
-        if self._respawn_flash > 0:
-            self._respawn_flash -= dt * 2
-            if self._respawn_flash < 0:
-                self._respawn_flash = 0
-
         # Update speed lines
         self._update_speed_lines(dt)
 
@@ -422,7 +405,7 @@ class GameScene(Scene):
                 race_winner=result.race_winner,
             ))
 
-        # Check loss (no lives left)
+        # Check loss
         if snapshot.is_loss:
             self._close_attempt("loss")
             result = self._level.build_result()
@@ -496,20 +479,6 @@ class GameScene(Scene):
             pygame.draw.rect(flash_surf, (255, 0, 0, border_alpha), flash_surf.get_rect(), width=25)
             screen.blit(flash_surf, (0, 0))
 
-        # Respawn flash effect (white flash + green particles feel)
-        if self._respawn_flash > 0:
-            flash_surf = pygame.Surface((self.config.window_width, self.config.window_height), pygame.SRCALPHA)
-            alpha = int(120 * self._respawn_flash)
-            flash_surf.fill((100, 255, 150, alpha))
-            screen.blit(flash_surf, (0, 0))
-
-            # "RESPAWN!" text without pulse
-            respawn_text = self.config.title_font.render("RESPAWN", True, (100, 255, 150))
-            respawn_rect = respawn_text.get_rect(
-                center=(self.config.window_width // 2, self.config.window_height // 2)
-            )
-            screen.blit(respawn_text, respawn_rect)
-
         # Pause overlay
         if self._paused:
             screen.blit(self._pause_overlay, (0, 0))
@@ -527,7 +496,7 @@ class GameScene(Scene):
                 self._draw_pause_button(screen, btn, is_selected)
 
             # Help text (moved up to avoid overlapping with tutorial hints)
-            help_text = "ARROWS: Move | UP: Jump | S: Shoot | ESC: Pause"
+            help_text = "ARROWS MOVE - UP JUMP - S SHOOT - ESC PAUSE"
             help_surf = self.config.instruction_font.render(help_text, True, (150, 150, 150))
             help_rect = help_surf.get_rect(
                 center=(self.config.window_width // 2, self.config.window_height - 100)
@@ -734,47 +703,3 @@ class GameScene(Scene):
         label_surf = self.config.instruction_font.render(btn["label"], True, text_color)
         label_rect = label_surf.get_rect(center=rect.center)
         screen.blit(label_surf, label_rect)
-
-    def _draw_pause_stats(self, screen: pygame.Surface) -> None:
-        """Draw statistics panel on pause screen."""
-        if self._level is None or self._level.player is None:
-            return
-        snapshot = self._level.snapshot()
-
-        # Right-aligned panel
-        panel_w = 320
-        panel_h = 200
-        panel_x = self.config.window_width - panel_w - 40
-        panel_y = 160
-
-        # Semi-transparent panel background
-        panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
-        panel.fill((20, 20, 30, 200))
-        screen.blit(panel, (panel_x, panel_y))
-        pygame.draw.rect(screen, (60, 60, 80), (panel_x, panel_y, panel_w, panel_h), width=1, border_radius=4)
-
-        # Stats title
-        title = self.config.instruction_font.render("STATS", True, (255, 255, 255))
-        screen.blit(title, (panel_x + 10, panel_y + 8))
-
-        # Stats lines
-        stats = [
-            (f"SCORE {snapshot.score}", (255, 255, 255)),
-            (f"LIVES {self._level.player.lives} OF {Player.MAX_LIVES}", (255, 50, 80)),
-            (f"HEALTH {int(snapshot.health * 100)}", (100, 255, 100)),
-            (f"COINS {snapshot.collected_coins} OF {snapshot.total_coins}", (255, 215, 0)),
-            (f"COMBO X{snapshot.combo_count}", (255, 215, 0) if snapshot.combo_count > 1 else (200, 200, 200)),
-        ]
-        minutes = int(snapshot.elapsed_time) // 60
-        seconds = int(snapshot.elapsed_time) % 60
-        stats.append((f"TIME {minutes:02d} {seconds:02d}", (200, 200, 200)))
-
-        if snapshot.checkpoint_count > 0:
-            cp_text = f"CHECKPOINTS {snapshot.current_checkpoint_idx + 1} OF {snapshot.checkpoint_count}"
-            stats.append((cp_text, (100, 255, 150)))
-
-        line_y = panel_y + 35
-        for text, color in stats:
-            surf = self.config.instruction_font.render(text, True, color)
-            screen.blit(surf, (panel_x + 12, line_y))
-            line_y += 24

@@ -84,7 +84,7 @@ old rule missed.
 | Levels 1–3: 6-tick jump buffer and 6-tick coyote time; releasing UP while rising caps the rise (tap = 75 px hop, hold = full 210 px). The spec arc itself (-20, +1) is kept, in whole pixels. | §3: no forgiveness existed in the levels visitors play first. |
 | Swept flying-platform landing. | §4. |
 | Hit-stop: the simulation holds 5 ticks when the player is hurt, 4 when the boss is hit, 10 when the boss dies. | Impacts had sound and particles but no pause, so a hit and a non-event read the same. |
-| Squash and stretch on the player sprite (stretch on take-off, squash on landing scaled by fall speed, a brief red flash when hurt). Drawing only, the hitbox is unchanged. | The sprite was rigid; landings were signalled only by a screen shake. |
+| Squash and stretch on the player sprite (stretch on take-off, squash on landing scaled by fall speed, a brief red flash when hurt). Drawing only; collisions are unchanged. | The sprite was rigid; landings were signalled only by a screen shake. |
 | Screen shake no longer fires on every landing, only after long falls. | A shake on every landing makes the camera noise and drowns out the shakes that mean something. |
 | The red "you were hurt" screen flash fires only when the player is hurt. It used to fire on any shake above 4, which included the player's own hits on the boss. | Feedback bug: hitting the boss looked like being hit. |
 | The end flag counts once the player is level with or past its pole, not only on touching its centre. | Found playing the live itch.io build: crossing the pole mid-jump never touched the flag's 10 px radius (centred mid-pole), so the flag scrolled away and the level never ended. |
@@ -97,8 +97,10 @@ defects, and the playtests in `PLAYTEST.md` should decide them:
   Many visitors will expect a "Mario" game to let them stomp.
 - **Level 1 cannot really be lost.** An enemy takes 5% health; a run that
   never jumps finishes with 20% left.
-- **Lives are dead code in levels 1–3.** `Player.respawn()` and the pause
-  screen's "LIVES" line exist, but nothing calls them outside level 4.
+- **There are no lives.** One health bar per attempt. The unused remains of
+  a lives and checkpoint system (`Player.respawn()`, a pause-screen stats
+  panel nothing drew, two loading-screen tips promising both) were removed on
+  2026-10-28.
 - **Level layouts.** Moving coins or enemies without death data would be
   guessing. `tools/playtest_report.py` produces that data.
 - The boss fires only when the player is **at least** 500 px away. That is

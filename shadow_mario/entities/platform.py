@@ -13,7 +13,7 @@ class Platform(MoveableEntity):
                  image_path: str | None = None, speed: float | None = None) -> None:
         img = image_path or config.platform_image
         spd = speed if speed is not None else config.platform_speed
-        super().__init__(x, y, img, spd, hitbox_scale=1.0)
+        super().__init__(x, y, img, spd)
 
     def can_move_right(self) -> bool:
         return self.x < self.RIGHT_BOUND

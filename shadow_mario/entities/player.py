@@ -5,9 +5,8 @@ from .game_entity import GameEntity
 
 
 class Player(GameEntity):
-    """Player character with lives system and improved jump physics."""
+    """Player character with forgiving jump physics."""
 
-    MAX_LIVES = 3
     COYOTE_TIME = 0.12  # Seconds after leaving platform where you can still jump
     JUMP_BUFFER = 0.08  # Seconds before landing where jump input is buffered
     GRAVITY = 0.6
@@ -27,7 +26,7 @@ class Player(GameEntity):
     LEGACY_COYOTE_TICKS = 6  # a jump still counts this many ticks after walking off an edge
     LEGACY_BUFFER_TICKS = 6  # a press this many ticks before landing jumps on touchdown
 
-    # Squash and stretch are drawn only; they never change the hitbox.
+    # Squash and stretch are drawn only; they never change collisions.
     SQUASH_DECAY = 0.72
     JUMP_STRETCH = -0.22
     LAND_SQUASH_PER_SPEED = 0.018
@@ -36,7 +35,7 @@ class Player(GameEntity):
 
     def __init__(self, x: float, y: float, config: GameConfig, is_player2: bool = False,
                  swap_controls: bool = False, legacy_movement: bool = False) -> None:
-        super().__init__(x, y, config.player_image_right, hitbox_scale=0.75)
+        super().__init__(x, y, config.player_image_right)
         self.is_player2 = is_player2
         self.swap_controls = swap_controls
         self.legacy_movement = legacy_movement
@@ -56,7 +55,6 @@ class Player(GameEntity):
         
         self.facing_right = True
         self.health = config.player_health
-        self.lives = self.MAX_LIVES
         self.score = 0
         self.invincibility_frames = 0
         self.double_score_frames = 0
@@ -66,16 +64,9 @@ class Player(GameEntity):
         self.is_jumping = True
         self._jump_pressed_last_frame = False
 
-        # Spawn position for respawn
+        # Spawn position (level 1 hints measure travel from it)
         self.spawn_x = x
         self.spawn_y = y
-
-        # Checkpoint position (updated when reaching checkpoints)
-        self.checkpoint_x = x
-        self.checkpoint_y = y
-
-        # Respawn effect timer (for visual effect)
-        self.respawn_effect_timer = 0.0
 
         # Coyote time: time since left platform
         self._coyote_timer = 0.0
@@ -112,8 +103,6 @@ class Player(GameEntity):
             self.invincibility_frames -= 1
         if self.double_score_frames > 0:
             self.double_score_frames -= 1
-        if self.respawn_effect_timer > 0:
-            self.respawn_effect_timer -= 1 / 60
 
         if self.health <= 0:
             self.y += 2.0
@@ -266,21 +255,6 @@ class Player(GameEntity):
             return True
         return False
 
-    def respawn(self) -> bool:
-        """Respawn player at spawn point. Returns True if lives remain, False if game over."""
-        self.lives -= 1
-        if self.lives <= 0:
-            return False
-        # Reset position and health (use checkpoint if available)
-        self.x = self.checkpoint_x
-        self.y = self.checkpoint_y
-        self.health = 1.0
-        self.vertical_speed = 0.0
-        self.is_jumping = True
-        self.invincibility_frames = 120  # 2 seconds of invincibility after respawn
-        self.respawn_effect_timer = 1.0  # 1 second respawn visual effect
-        return True
-
     def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
         current_image = self.image_right if self.facing_right else self.image_left
         draw_x = int(self.x + offset[0])
@@ -288,7 +262,7 @@ class Player(GameEntity):
 
         # Keep dead players visible while falling so knockout feedback is readable.
         if self.health <= 0:
-            fall_ratio = max(0.0, min(1.0, (self.y - self.checkpoint_y) / 180.0))
+            fall_ratio = max(0.0, min(1.0, (self.y - self.spawn_y) / 180.0))
             rotate_dir = -1 if self.facing_right else 1
             angle = 110.0 * fall_ratio * rotate_dir
             dead_img = pygame.transform.rotozoom(current_image, angle, 1.0)

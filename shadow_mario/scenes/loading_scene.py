@@ -17,14 +17,11 @@ class LoadingScene(Scene):
 
     TIPS = [
         "Press UP to jump - hold longer for higher jumps!",
-        "Collect coins in a row to build combos and earn more points!",
         "Avoid enemies - they have a damage cooldown after hitting you.",
         "Press S to shoot fireballs when near the boss!",
         "Power-ups give temporary invincibility or double score!",
-        "Checkpoints save your progress - reach them to respawn there!",
         "Collect all coins for a perfect bonus at the end!",
         "The faster you finish, the higher your time bonus!",
-        "You have 3 lives - use them wisely!",
         "Flying platforms move horizontally - time your jumps!",
     ]
 
@@ -124,15 +121,9 @@ class LoadingScene(Scene):
         # Border
         pygame.draw.rect(screen, (100, 150, 255), bg_rect, width=1, border_radius=6)
 
-        # Percentage
-        pct_text = f"{int(self._progress * 100)}%"
-        pct_surf = self.config.instruction_font.render(pct_text, True, (200, 200, 200))
-        pct_rect = pct_surf.get_rect(center=(cx, bar_y + bar_height + 20))
-        screen.blit(pct_surf, pct_rect)
-
         # Gameplay tip (typewriter effect)
         tip_y = self.config.window_height // 2 + 140
-        tip_label = self.config.instruction_font.render("TIP:", True, (255, 215, 0))
+        tip_label = self.config.instruction_font.render("TIP", True, (255, 215, 0))
         screen.blit(tip_label, (cx - tip_label.get_width() // 2, tip_y))
 
         # Typewriter: show characters progressively
