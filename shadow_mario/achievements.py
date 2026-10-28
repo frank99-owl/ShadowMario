@@ -1,8 +1,10 @@
 """Achievement system."""
 
-from typing import Optional, Callable
+from __future__ import annotations
 
-from shadow_mario.save import get_save_manager
+from typing import Callable, Optional
+
+from shadow_mario.save import SaveManager, get_save_manager
 
 
 class Achievement:
@@ -18,20 +20,8 @@ class Achievement:
 class AchievementManager:
     """Manages game achievements."""
 
-    _instance: Optional["AchievementManager"] = None
-
-    def __new__(cls) -> "AchievementManager":
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
-
-    def __init__(self) -> None:
-        if self._initialized:
-            return
-        self._initialized = True
-
-        self.save = get_save_manager()
+    def __init__(self, save: SaveManager) -> None:
+        self.save = save
 
         # Achievement definitions
         self.achievements: dict[str, Achievement] = {
@@ -68,8 +58,13 @@ class AchievementManager:
         """Get all unlocked achievements."""
         return [a for a in self.achievements.values() if self.is_unlocked(a.id)]
 
-    def check_level_complete(self, level: int, score: int, health: float, coins: int) -> list[str]:
-        """Check level completion related achievements, returns list of newly unlocked achievement IDs."""
+    def check_level_complete(self, level: int, score: int, health: float) -> list[str]:
+        """Check level completion related achievements, returns list of newly unlocked achievement IDs.
+
+        Call it after the level's coins are in the save: the coin total is read
+        from the save alone. Adding the level's coins again here counted them
+        twice, so "Collect 50 coins in total" unlocked after 25.
+        """
         unlocked = []
 
         if level == 1:
@@ -88,13 +83,19 @@ class AchievementManager:
                 unlocked.append("no_damage")
 
         # Coin collection
-        total_coins = self.save.get_total_coins() + coins
-        if total_coins >= 50:
+        if self.save.get_total_coins() >= 50:
             if self.unlock("coin_collector"):
                 unlocked.append("coin_collector")
 
         return unlocked
 
 
+_instance: AchievementManager | None = None
+
+
 def get_achievement_manager() -> AchievementManager:
-    return AchievementManager()
+    """The process-wide AchievementManager, bound to the process-wide save."""
+    global _instance
+    if _instance is None:
+        _instance = AchievementManager(get_save_manager())
+    return _instance

@@ -105,13 +105,10 @@ class GameOverScene(Scene):
             save.set_best_time(self._level, self._elapsed_time)
             if self._level < 4:
                 save.unlock_level(self._level + 1)
-            # Save coins
+            # Save coins first: the achievement check reads the total from the save.
             save.add_coins(self._collected_coins)
-            # Check achievements
             am = get_achievement_manager()
-            self._new_achievements = am.check_level_complete(
-                self._level, self._score, self._health, self._collected_coins
-            )
+            self._new_achievements = am.check_level_complete(self._level, self._score, self._health)
             audio.stop_bgm(fade_ms=200)
             audio.play_sfx("win")
         else:
